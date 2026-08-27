@@ -1,5 +1,10 @@
 # claude-god — build plan
 
+> **Status: built.** M0–M7 are implemented and their acceptance criteria met.
+> 46 tests pass without spending tokens; the pipeline was also proved end to end
+> against real Claude sessions on the toy repo (request → green diff, then a
+> human `redo` round). See [README.md](README.md) for how to run it.
+
 A local system that runs dev tasks end to end with multiple Claude agents:
 spec → plan → implement (parallel lanes) → gates → critic loop → done.
 A Python orchestrator drives everything through `claude -p` (headless, subscription auth).

@@ -97,6 +97,10 @@ class ServerConfig(BaseModel):
     phase_timeout_s: int = 3600
     host: str = "127.0.0.1"
     port: int = 8787
+    #: Shell command run when a task finishes or needs you. Gets GOD_TASK_ID,
+    #: GOD_TASK_TITLE, GOD_PHASE, GOD_REPO in its environment. Example on macOS:
+    #: "osascript -e 'display notification \"$GOD_TASK_TITLE\" with title \"$GOD_PHASE\"'"
+    notify_cmd: str | None = None
 
     @classmethod
     def load(cls) -> "ServerConfig":

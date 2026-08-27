@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
+import subprocess
 from datetime import timedelta
 from pathlib import Path
 
@@ -45,6 +47,9 @@ from .specparse import parse_criteria
 from .store import TaskStore
 
 RATE_LIMIT_PARK = timedelta(minutes=20)
+
+#: Phases worth interrupting a human for.
+NOTIFY_PHASES = {Phase.DONE, Phase.ESCALATED, Phase.FAILED, Phase.AWAITING_SPEC_APPROVAL}
 
 
 def worktrees_root() -> Path:
@@ -94,6 +99,8 @@ class Pipeline:
         state.phase, state.status = dst, status
         store.save(state)
         self.emit(store, "state", f"{src.value} -> {dst.value}", phase=dst, status=status.value)
+        if dst in NOTIFY_PHASES:
+            self._notify(state, dst)
 
     async def _call(
         self, store: TaskStore, state: TaskState, req: PhaseRequest, label: str
@@ -139,6 +146,27 @@ class Pipeline:
                 f"budget exceeded: ${state.usage.cost_usd:.2f} > ${state.budget_usd:.2f}"
             )
         return res.text
+
+    def _notify(self, state: TaskState, phase: Phase) -> None:
+        """Fire the configured notify command. Never let it break a run."""
+        cmd = self.cfg.notify_cmd
+        if not cmd:
+            return
+        env = {
+            **os.environ,
+            "GOD_TASK_ID": state.id,
+            "GOD_TASK_TITLE": state.title,
+            "GOD_PHASE": phase.value,
+            "GOD_REPO": state.repo,
+        }
+        try:
+            subprocess.Popen(
+                cmd, shell=True, env=env,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     # ---- git helpers -------------------------------------------------
     async def _resolve_base(self, repo: Path, cfg: ProjectConfig) -> str:

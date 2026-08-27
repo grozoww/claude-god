@@ -1,0 +1,19 @@
+{
+  "name": "claude-god",
+  "base_branch": "main",
+  "setup_cmd": null,
+  "gates": [],
+  "lanes": {
+    "server": {
+      "paths": ["server/**", "pyproject.toml", "uv.lock"],
+      "gates": ["uv run pytest server/tests -q"],
+      "description": "Python orchestrator: state machine, task store, Claude runner, gates, FastAPI app, god CLI."
+    },
+    "ui": {
+      "paths": ["ui/**"],
+      "gates": ["cd ui && npm run typecheck"],
+      "description": "React + TypeScript dashboard (Vite), built into server/god/static/."
+    }
+  },
+  "max_rounds": 3
+}

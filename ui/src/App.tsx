@@ -5,6 +5,22 @@ import NewTask from "./components/NewTask";
 import TaskDetail from "./components/TaskDetail";
 import { Dot, Modal, Pill, ago, cost } from "./components/bits";
 
+const NOTIFY = new Set<string>(["done", "escalated", "failed", "awaiting_spec_approval"]);
+const NOTIFY_TEXT: Record<string, string> = {
+  done: "Finished",
+  escalated: "Out of rounds — needs you",
+  failed: "Failed",
+  awaiting_spec_approval: "Spec ready for approval",
+};
+
+function notify(phase: string, taskId: string) {
+  try {
+    if (Notification?.permission === "granted") {
+      new Notification(NOTIFY_TEXT[phase] ?? phase, { body: taskId, tag: taskId });
+    }
+  } catch { /* not available in this browser */ }
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [repos, setRepos] = useState<RepoInfo[]>([]);
@@ -22,8 +38,14 @@ export default function App() {
   }, []);
 
   useEffect(() => { void refresh(); void api.health().then(setHealth).catch(() => {}); }, [refresh]);
-  // One global stream keeps the list live without polling.
-  useEffect(() => subscribe(() => { void refresh(); }), [refresh]);
+  // One global stream keeps the list live without polling, and raises a desktop
+  // notification when a task finishes or gets stuck.
+  useEffect(() => subscribe((e) => {
+    void refresh();
+    if (e.kind === "state" && e.phase && NOTIFY.has(e.phase)) notify(e.phase, e.task_id);
+  }), [refresh]);
+
+  useEffect(() => { void Notification?.requestPermission?.().catch(() => {}); }, []);
   useEffect(() => {
     const t = setInterval(() => void refresh(), 15000); // catch anything the stream missed
     return () => clearInterval(t);
@@ -32,6 +54,7 @@ export default function App() {
   const needsYou = tasks.filter(
     (t) => t.phase === "awaiting_spec_approval" || t.phase === "escalated",
   ).length;
+  const spend = tasks.reduce((sum, t) => sum + t.usage.cost_usd, 0);
 
   return (
     <div className="app">
@@ -45,6 +68,7 @@ export default function App() {
         <span className="muted small">
           {tasks.filter((t) => t.status === "running").length} running
           {health ? ` · max ${health.max_parallel}` : ""}
+          {spend > 0 ? ` · $${spend.toFixed(2)} total` : ""}
         </span>
         <button onClick={() => setReposOpen(true)}>Repos</button>
         <button className="primary" disabled={repos.length === 0}
