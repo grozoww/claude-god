@@ -56,7 +56,7 @@ Needs `claude` (logged in), `git`, `uv`, and Node for the dashboard.
 ```bash
 uv sync
 cd ui && npm install && npm run build && cd ..
-uv run god doctor
+uv run ccgod doctor
 ```
 
 Optionally install the CLI globally:
@@ -68,11 +68,11 @@ uv tool install --editable .
 ## Try it on a sandbox
 
 ```bash
-uv run god demo
-uv run god new "reject orders with more than 50 lines" -r toy-store
+uv run ccgod demo
+uv run ccgod new "reject orders with more than 50 lines" -r toy-store
 ```
 
-`god demo` copies the bundled toy repo to `~/.god/demo/toy-store`, git-inits it and
+`ccgod demo` copies the bundled toy repo to `~/.god/demo/toy-store`, git-inits it and
 registers it. The run stops for you to approve the spec; `--yes` skips that.
 
 <p align="center">
@@ -84,10 +84,10 @@ registers it. The run stops for you to approve the spec; `--yes` skips that.
 <summary><b>The same run from the CLI</b></summary>
 
 <p align="center">
-  <img src="docs/img/cli.png" alt="Terminal output of a full god run: spec, plan, implement, gates, review, a human redo, then done" width="80%">
+  <img src="docs/img/cli.png" alt="Terminal output of a full ccgod run: spec, plan, implement, gates, review, a human redo, then done" width="80%">
 </p>
 
-Request to green diff, then a `god redo` round that extracted a constant — the
+Request to green diff, then a `ccgod redo` round that extracted a constant — the
 real run, about two minutes and a dollar each way.
 
 </details>
@@ -95,12 +95,12 @@ real run, about two minutes and a dollar each way.
 ## Use it on your own repo
 
 ```bash
-uv run god init /path/to/repo     # writes .agents/ — review it, then commit it
-uv run god new "add order refunds" -r repo
-uv run god serve                  # dashboard on http://127.0.0.1:8787
+uv run ccgod init /path/to/repo     # writes .agents/ — review it, then commit it
+uv run ccgod new "add order refunds" -r repo
+uv run ccgod serve                  # dashboard on http://127.0.0.1:8787
 ```
 
-`god init` runs one agent that explores the repo and drafts:
+`ccgod init` runs one agent that explores the repo and drafts:
 
 | File | What it is |
 |---|---|
@@ -134,20 +134,20 @@ other's files. Single-stack repos should use one lane named `main`.
 ## Commands
 
 ```
-god demo                     copy the toy repo and register it
-god init <repo>              draft .agents/ for a repo
-god new "<title>" -r <repo>  create and run a task
-god list                     tasks across registered repos
-god show <id> -e 40          one task, with the last 40 events
-god spec <id>                print the spec
-god approve <id>             approve the spec and continue
-god redo <id> "<note>"       send it back with a note
-god cancel <id>              stop it
-god cleanup <id>             remove lane worktrees
-god usage                    token and cost rollup
-god serve                    API + dashboard
-god doctor                   check the environment
-god repos add|list|rm        manage the repo registry
+ccgod demo                     copy the toy repo and register it
+ccgod init <repo>              draft .agents/ for a repo
+ccgod new "<title>" -r <repo>  create and run a task
+ccgod list                     tasks across registered repos
+ccgod show <id> -e 40          one task, with the last 40 events
+ccgod spec <id>                print the spec
+ccgod approve <id>             approve the spec and continue
+ccgod redo <id> "<note>"       send it back with a note
+ccgod cancel <id>              stop it
+ccgod cleanup <id>             remove lane worktrees
+ccgod usage                    token and cost rollup
+ccgod serve                    API + dashboard
+ccgod doctor                   check the environment
+ccgod repos add|list|rm        manage the repo registry
 ```
 
 <details>
@@ -180,7 +180,7 @@ What it spends is your plan's rate window, so:
   is on disk, so parking is free.
 - `budget_usd` per task or per repo stops a run that overspends.
 - `models` in project config picks a model per phase.
-- `god usage` and the dashboard header show what has been spent.
+- `ccgod usage` and the dashboard header show what has been spent.
 
 A small single-lane task on the toy repo costs roughly $1 and takes about two
 minutes end to end.
@@ -254,14 +254,14 @@ dashboard also raises a browser notification when its tab is open.
 ```bash
 uv run pytest server/tests -q       # 46 tests, no tokens spent
 cd ui && npm run dev                # dashboard on :5173, proxies to :8787
-uv run god serve                    # API on :8787
+uv run ccgod serve                    # API on :8787
 ```
 
 The pipeline tests use a fake runner that writes the same files a real agent would,
 so every transition, the gate→revise path, the criteria lock, escalation and the
 parallel-worktree merge are covered without calling Claude.
 
-To regenerate the screenshots (needs Chrome, and `god serve --port 8799` running):
+To regenerate the screenshots (needs Chrome, and `ccgod serve --port 8799` running):
 
 ```bash
 uv run python scripts/seed-screenshots.py   # demo tasks in every state
@@ -280,7 +280,7 @@ numbers in that image are the ones that run actually produced.
 server/god/      state machine, task store, runner, gates, worktrees, API, CLI
 ui/              React dashboard → builds into server/god/static
 plugin/          skills and agent definitions
-examples/toy/    sandbox repo used by `god demo`
+examples/toy/    sandbox repo used by `ccgod demo`
 scripts/         screenshot tooling for the README
 docs/img/        the screenshots above
 PLAN.md          the build plan this was written against

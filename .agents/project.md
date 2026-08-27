@@ -49,7 +49,7 @@ terminal or watched live in a browser.
 
 ## Architecture map
 
-Request flow: `god new "<desc>" -r <repo>` (CLI) or `POST /api/tasks` (API) →
+Request flow: `ccgod new "<desc>" -r <repo>` (CLI) or `POST /api/tasks` (API) →
 `Service.create()` writes `state.json` (phase `new`) → `Pipeline.start()` schedules
 an asyncio task → `Pipeline.run()` calls one `phase_*` method per step. Each
 `phase_*` method builds a prompt (`prompts.py`) and hands it to `self._call()`,
@@ -109,7 +109,7 @@ which runs one `claude -p` subprocess via a `Runner`, accounts usage, and emits
   task.md` is a slash command. This doc you're reading now exists because of
   `plugin/skills/project-onboard/SKILL.md`.
 - `examples/toy/` — a tiny bundled repo (`store/` order model + pytest tests)
-  that `god demo` copies, `git init`s, and registers, so a fresh install has
+  that `ccgod demo` copies, `git init`s, and registers, so a fresh install has
   something safe to run a full pipeline against without touching real code.
 
 ## Invariants

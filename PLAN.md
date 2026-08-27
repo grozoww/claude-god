@@ -48,12 +48,12 @@ Each milestone has acceptance criteria (AC) — we eat our own dog food.
 
 ### M0 — Skeleton (~0.5 day)
 Repo layout, `uv` project, FastAPI hello, Vite scaffold, plugin manifest, toy example app.
-- AC: `uv run god serve` starts; `pnpm build` in ui/ lands in server/static; `claude --version` detected and logged.
+- AC: `uv run ccgod serve` starts; `pnpm build` in ui/ lands in server/static; `claude --version` detected and logged.
 
 ### M1 — Task state core (~1 day)
 Task folder schema (spec.md, plan.md, state.json, events.jsonl, reviews/, feedback/, lanes/).
 State machine (phases + legal transitions) as code, JSON Schemas for state.json and the critic verdict.
-CLI: `god new "<desc>" --repo <path>`, `god list`, `god show <id>`.
+CLI: `ccgod new "<desc>" --repo <path>`, `ccgod list`, `ccgod show <id>`.
 - AC: create/inspect a task; illegal transition rejected with a clear error; events append and tail correctly; transitions unit-tested.
 
 ### M2 — Claude runner (~1–2 days)
@@ -87,10 +87,10 @@ Lane status in the dashboard.
   file touches, merged branch green through gates + critic.
 
 ### M6 — Project onboarding (~1 day)
-`god init`: onboarding agent explores a repo, drafts `.agents/project.md`,
+`ccgod init`: onboarding agent explores a repo, drafts `.agents/project.md`,
 `lanes/*.md`, and a proposed `config.json`; user edits and approves.
-`god refresh-context` re-runs it as a diff. Context routing implemented per the table.
-- AC: `god init` on one of my real repos produces docs I keep with ≤10 min of edits.
+Re-running `ccgod init` refreshes it as a diff. Context routing implemented per the table.
+- AC: `ccgod init` on one of my real repos produces docs I keep with ≤10 min of edits.
 
 ### M7 — Hardening (ongoing)
 Per-task token budgets, usage rollup view, notifications on escalation/done,

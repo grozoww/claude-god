@@ -1,7 +1,7 @@
 """Render the CLI run as an image for the README.
 
 Replays a real task's `events.jsonl` and final state through the same formatting
-`god run` uses, so the numbers in the picture are the ones that run produced.
+`ccgod run` uses, so the numbers in the picture are the ones that run produced.
 Rich exports SVG; Chrome turns that into a PNG, since GitHub renders PNG most
 reliably.
 
@@ -42,7 +42,7 @@ def render_svg(task_id: str) -> Path:
     state = store.load()
 
     console = Console(record=True, width=96, force_terminal=True)
-    console.print(f'[green]$[/] god new [white]"{state.title}"[/] -r toy-store\n')
+    console.print(f'[green]$[/] ccgod new [white]"{state.title}"[/] -r toy-store\n')
     console.print(f"[green]created[/] {state.id}  [dim]{store.dir}[/]")
     for e in store.read_events():
         colour = {"warn": "yellow", "error": "red"}.get(e.level, "cyan")
@@ -55,7 +55,7 @@ def render_svg(task_id: str) -> Path:
 
     OUT.mkdir(parents=True, exist_ok=True)
     svg = OUT / "cli.svg"
-    svg.write_text(console.export_svg(title="god run", font_aspect_ratio=0.61))
+    svg.write_text(console.export_svg(title="ccgod run", font_aspect_ratio=0.61))
     return svg
 
 

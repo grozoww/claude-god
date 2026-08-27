@@ -17,7 +17,7 @@ sdk = ["claude-agent-sdk>=0.1.0"]
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
 
 [project.scripts]
-god = "god.cli:app"
+ccgod = "god.cli:app"
 
 [build-system]
 requires = ["hatchling"]

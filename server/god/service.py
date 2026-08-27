@@ -186,7 +186,7 @@ class Service:
 
     # ---- onboarding --------------------------------------------------
     async def onboard(self, repo: str | Path, hint: str = "") -> str:
-        """`god init` — draft `.agents/project.md`, lane docs and config.json."""
+        """`ccgod init` — draft `.agents/project.md`, lane docs and config.json."""
         repo_path = self.cfg.resolve_repo(str(repo))
         (repo_path / ".agents" / "lanes").mkdir(parents=True, exist_ok=True)
         pcfg = load_project_config(repo_path)

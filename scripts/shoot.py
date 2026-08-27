@@ -4,7 +4,7 @@ Drives headless Chrome over the DevTools protocol. `chrome --screenshot` cannot
 be used here: the dashboard holds an SSE connection open, so the page never goes
 network-idle and Chrome waits forever.
 
-    uv run god serve --port 8799
+    uv run ccgod serve --port 8799
     uv run python scripts/seed-screenshots.py
     uv run python scripts/shoot.py
 """
@@ -100,7 +100,7 @@ async def main() -> int:
     try:
         httpx.get(f"{BASE}/api/health", timeout=3)
     except Exception:
-        print(f"dashboard not running at {BASE} — start `god serve --port 8799`")
+        print(f"dashboard not running at {BASE} — start `ccgod serve --port 8799`")
         return 1
 
     proc = subprocess.Popen(

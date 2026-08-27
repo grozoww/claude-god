@@ -7,7 +7,7 @@
     "server": {
       "paths": ["server/**", "pyproject.toml", "uv.lock"],
       "gates": ["uv run pytest server/tests -q"],
-      "description": "Python orchestrator: state machine, task store, Claude runner, gates, FastAPI app, god CLI."
+      "description": "Python orchestrator: state machine, task store, Claude runner, gates, FastAPI app, ccgod CLI."
     },
     "ui": {
       "paths": ["ui/**"],

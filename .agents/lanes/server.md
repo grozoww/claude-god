@@ -1,7 +1,7 @@
 # Lane: server
 
 The Python orchestrator: state machine, task store, Claude runner, gates, FastAPI
-app, and the `god` CLI. Everything under `server/`, plus the root `pyproject.toml`
+app, and the `ccgod` CLI. Everything under `server/`, plus the root `pyproject.toml`
 and `uv.lock` that define its dependencies and test config.
 
 ## Stack
@@ -10,7 +10,7 @@ and `uv.lock` that define its dependencies and test config.
   `python`/`pytest` on PATH — go through `uv run`.
 - FastAPI + Pydantic v2 for the API and every on-disk schema (`state.json`,
   `reviews/round-N.json` are just `model_dump_json()`/`model_validate_json()`).
-- Typer + Rich for the CLI (`god`).
+- Typer + Rich for the CLI (`ccgod`).
 - `asyncio` throughout — phases, gates, and git calls are all `async def`.
 - Tests: pytest + pytest-asyncio (`asyncio_mode = "auto"` in `pyproject.toml`,
   so async test functions need no decorator).

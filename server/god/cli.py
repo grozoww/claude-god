@@ -115,7 +115,7 @@ def repos_list():
             "yes" if (p / ".agents" / "project.md").exists() else "[yellow]no[/]",
             ", ".join(cfg.lane_names) or "-",
         )
-    console.print(t if svc.cfg.repos else "[dim]no repos registered — `god repos add <path>`[/]")
+    console.print(t if svc.cfg.repos else "[dim]no repos registered — `ccgod repos add <path>`[/]")
 
 
 @repos_app.command("rm")
@@ -136,12 +136,12 @@ def init(
     try:
         path = _resolve_repo_arg(svc, repo)
     except FileNotFoundError as exc:
-        console.print(f"[red]{exc}[/] — try `god repos list`")
+        console.print(f"[red]{exc}[/] — try `ccgod repos list`")
         raise typer.Exit(1)
     console.print(f"[cyan]onboarding[/] {path} — this runs one Claude session…")
     text = asyncio.run(svc.onboard(str(path), hint))
     console.print(Panel(text or "(no summary)", title="onboarding"))
-    console.print(f"[green]wrote[/] {path / '.agents'}/ — review it, then `god new`")
+    console.print(f"[green]wrote[/] {path / '.agents'}/ — review it, then `ccgod new`")
 
 
 @app.command()
@@ -159,7 +159,7 @@ def new(
     try:
         repo_path = _resolve_repo_arg(svc, repo)
     except FileNotFoundError as exc:
-        console.print(f"[red]{exc}[/] — try `god repos list`")
+        console.print(f"[red]{exc}[/] — try `ccgod repos list`")
         raise typer.Exit(1)
     store = svc.create(
         str(repo_path), title, desc,
@@ -169,7 +169,7 @@ def new(
     if watch:
         asyncio.run(_watch(store.task_id, svc))
     else:
-        console.print("run it with: [bold]god run " + store.task_id + "[/]")
+        console.print("run it with: [bold]ccgod run " + store.task_id + "[/]")
 
 
 @app.command("list")
@@ -341,7 +341,7 @@ def demo(
         console.print(f"[green]created[/] {dst}")
     _svc().add_repo(dst, "toy-store")
     console.print("registered as [bold]toy-store[/]")
-    console.print('try: [bold]god new "reject orders with more than 50 lines" -r toy-store[/]')
+    console.print('try: [bold]ccgod new "reject orders with more than 50 lines" -r toy-store[/]')
 
 
 @app.command()
