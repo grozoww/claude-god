@@ -18,6 +18,19 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     groups:
+      # These move as a unit or npm refuses to install: a solo major bump of
+      # either half leaves the other pinned to an incompatible peer range.
+      # First match wins, so the unit groups have to come before npm-minor.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      vite:
+        patterns:
+          - vite
+          - "@vitejs/*"
       npm-minor:
         update-types: [minor, patch]
 

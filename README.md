@@ -262,7 +262,8 @@ uv run ccgod serve                  # API on :8787
 
 CI runs the same three on every push and PR: pytest on Python 3.11 and 3.13,
 ruff, and the UI typecheck plus build. Dependabot opens weekly grouped PRs for
-pip and npm, monthly for Actions.
+pip and npm, monthly for Actions. React and Vite are each grouped with their
+peers, because bumping half of either pair on its own fails `npm ci`.
 
 The formatter is configured but not enforced — `ruff format` would rewrite
 about 1200 lines across 17 files, so run it as its own commit if you want it.
