@@ -1,0 +1,17 @@
+{
+  "name": "toy-store",
+  "base_branch": "main",
+  "gates": [
+    "uv run --with pytest python -m pytest -q"
+  ],
+  "lanes": {
+    "main": {
+      "paths": [
+        "**"
+      ],
+      "gates": [],
+      "description": "The whole toy store (single lane)"
+    }
+  },
+  "max_rounds": 3
+}

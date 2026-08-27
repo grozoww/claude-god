@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules/
+ui/dist/
+server/god/static/*
+!server/god/static/.gitkeep
+.agents/tasks/
+.god/
+*.egg-info/
+.DS_Store

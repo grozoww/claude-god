@@ -1,0 +1,6 @@
+{
+  "name": "claude-god",
+  "version": "0.1.0",
+  "description": "End-to-end multi-agent task pipeline: spec, plan, parallel lanes, gates, critic loop.",
+  "author": { "name": "grozoww" }
+}
