@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, subscribe } from "../api";
 import type { CritStatus, Finding, GodEvent, TaskDetail as TD } from "../types";
-import { Diff, Modal, Pill, cost, tokens } from "./bits";
+import { Diff, Modal, Pill, ProblemText, cost, findingLabel, tokens } from "./bits";
 
 const MARK: Record<CritStatus, string> = { pass: "✔", fail: "✘", unknown: "·" };
 type Tab = "overview" | "spec" | "plan" | "diff" | "log";
@@ -9,7 +9,9 @@ type Tab = "overview" | "spec" | "plan" | "diff" | "log";
 export default function TaskDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
   const [task, setTask] = useState<TD | null>(null);
   const [events, setEvents] = useState<GodEvent[]>([]);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(
+    () => (new URLSearchParams(location.search).get("tab") as Tab) || "overview",
+  );
   const [diff, setDiff] = useState<string>("");
   const [specDraft, setSpecDraft] = useState<string>("");
   const [redoOpen, setRedoOpen] = useState(false);
@@ -25,7 +27,17 @@ export default function TaskDetail({ id, onChanged }: { id: string; onChanged: (
     } catch (e) { setErr(String(e)); }
   }, [id]);
 
-  useEffect(() => { setTask(null); setEvents([]); setSpecDraft(""); setTab("overview"); }, [id]);
+  useEffect(() => {
+    setTask(null); setEvents([]); setSpecDraft("");
+    setTab((new URLSearchParams(location.search).get("tab") as Tab) || "overview");
+  }, [id]);
+
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (tab === "overview") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", tab);
+    history.replaceState(null, "", url);
+  }, [tab]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void api.events(id).then(setEvents).catch(() => {}); }, [id]);
 
@@ -149,11 +161,11 @@ export default function TaskDetail({ id, onChanged }: { id: string; onChanged: (
               {findings.map((f, i) => (
                 <div className={`finding ${f.source}`} key={i}>
                   <div className="small">
-                    <b>{f.criterion ?? f.source}</b>
+                    <b>{findingLabel(f)}</b>
                     {f.file && <span className="mono muted"> {f.file}{f.line ? `:${f.line}` : ""}</span>}
-                    <Pill>{f.source}</Pill>
+                    {f.criterion && <Pill>{f.source}</Pill>}
                   </div>
-                  <div className="small" style={{ whiteSpace: "pre-wrap" }}>{f.problem}</div>
+                  <div className="small"><ProblemText text={f.problem} /></div>
                   <div className="small muted">→ {f.required_change}</div>
                 </div>
               ))}
@@ -266,7 +278,7 @@ export default function TaskDetail({ id, onChanged }: { id: string; onChanged: (
             {events.map((e, i) => (
               <div key={i} className={e.level}>
                 <span className="ts">{new Date(e.ts).toLocaleTimeString()} </span>
-                <span className="kind">{e.kind.padEnd(11)}</span>
+                <span className="kind">{e.kind.padEnd(12)}</span>
                 {e.lane ? `[${e.lane}] ` : ""}{e.message}
               </div>
             ))}

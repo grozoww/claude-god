@@ -20,6 +20,10 @@ request → spec ──────┬──────→ plan + contract → 
                                        out of rounds → escalated → you
 ```
 
+<p align="center">
+  <img src="docs/img/dashboard.png" alt="claude-god dashboard: task list on the left, a running two-lane task with its acceptance criteria on the right" width="100%">
+</p>
+
 ## Why it is built this way
 
 **State lives on disk, not in a conversation.** Agents get compacted and forget;
@@ -32,6 +36,11 @@ they run first. Most bad rounds die there without spending an agent turn.
 **Criteria lock after round one.** From the first revision the critic may only judge
 the existing acceptance criteria. Without this it finds fresh objections forever and
 you pay forever.
+
+<p align="center">
+  <img src="docs/img/findings.png" alt="An escalated task: three of five criteria failing, the critic's findings each naming the criterion they violate, and the gate output that failed" width="100%">
+  <br><em>Out of rounds. Every finding names the criterion it violates — no criterion, no finding.</em>
+</p>
 
 **The contract is frozen before parallel work starts.** Two lanes that cannot see
 each other will invent two different API shapes. The planner writes the shared types
@@ -65,6 +74,23 @@ uv run god new "reject orders with more than 50 lines" -r toy-store
 
 `god demo` copies the bundled toy repo to `~/.god/demo/toy-store`, git-inits it and
 registers it. The run stops for you to approve the spec; `--yes` skips that.
+
+<p align="center">
+  <img src="docs/img/spec.png" alt="A task waiting for spec approval, with the spec open and editable in the dashboard" width="100%">
+  <br><em>The one gate worth having: approving a half-page spec costs a minute, a wrong spec costs three rounds of agents.</em>
+</p>
+
+<details>
+<summary><b>The same run from the CLI</b></summary>
+
+<p align="center">
+  <img src="docs/img/cli.png" alt="Terminal output of a full god run: spec, plan, implement, gates, review, a human redo, then done" width="80%">
+</p>
+
+Request to green diff, then a `god redo` round that extracted a constant — the
+real run, about two minutes and a dollar each way.
+
+</details>
 
 ## Use it on your own repo
 
@@ -123,6 +149,26 @@ god serve                    API + dashboard
 god doctor                   check the environment
 god repos add|list|rm        manage the repo registry
 ```
+
+<details>
+<summary><b>More screens</b></summary>
+
+<p align="center">
+  <img src="docs/img/review.png" alt="A finished task showing all criteria green, the gates that passed, and the round-by-round review history" width="100%">
+  <br><em>Done, after one revision round. The review history keeps every verdict.</em>
+</p>
+
+<p align="center">
+  <img src="docs/img/plan.png" alt="The plan tab showing the approach, the frozen contract, and the per-lane briefs" width="100%">
+  <br><em>The plan and the per-lane briefs. Each lane agent sees only its own.</em>
+</p>
+
+<p align="center">
+  <img src="docs/img/log.png" alt="The live event log of a task, streaming phase transitions and lane activity" width="100%">
+  <br><em>Every phase transition, streamed live from <code>events.jsonl</code>.</em>
+</p>
+
+</details>
 
 ## Cost
 
@@ -215,6 +261,19 @@ The pipeline tests use a fake runner that writes the same files a real agent wou
 so every transition, the gate→revise path, the criteria lock, escalation and the
 parallel-worktree merge are covered without calling Claude.
 
+To regenerate the screenshots (needs Chrome, and `god serve --port 8799` running):
+
+```bash
+uv run python scripts/seed-screenshots.py   # demo tasks in every state
+uv run python scripts/shoot.py              # dashboard shots
+uv run python scripts/shoot-cli.py <task-id>
+```
+
+`seed-screenshots.py` writes task folders directly rather than running agents, so
+`done`, `running`, `escalated` and `awaiting approval` can all be shown at once
+without four real runs. `shoot-cli.py` replays a real task's event log, so the
+numbers in that image are the ones that run actually produced.
+
 ## Layout
 
 ```
@@ -222,5 +281,7 @@ server/god/      state machine, task store, runner, gates, worktrees, API, CLI
 ui/              React dashboard → builds into server/god/static
 plugin/          skills and agent definitions
 examples/toy/    sandbox repo used by `god demo`
+scripts/         screenshot tooling for the README
+docs/img/        the screenshots above
 PLAN.md          the build plan this was written against
 ```

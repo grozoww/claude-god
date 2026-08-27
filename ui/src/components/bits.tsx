@@ -55,3 +55,27 @@ export function Diff({ text }: { text: string }) {
     </pre>
   );
 }
+
+const SOURCE_LABEL: Record<string, string> = {
+  critic: "critic",
+  gate: "gate failure",
+  human: "your note",
+};
+
+export function findingLabel(f: { criterion?: string | null; source: string }) {
+  return f.criterion ?? SOURCE_LABEL[f.source] ?? f.source;
+}
+
+/** Render text that may contain ``` fenced blocks (gate output, code snippets). */
+export function ProblemText({ text }: { text: string }) {
+  const parts = text.split(/```[a-z]*\n?/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1
+          ? <pre className="block" key={i}>{part.replace(/\n$/, "")}</pre>
+          : part.trim() && <div key={i} style={{ whiteSpace: "pre-wrap" }}>{part.trim()}</div>,
+      )}
+    </>
+  );
+}

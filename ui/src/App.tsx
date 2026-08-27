@@ -24,7 +24,10 @@ function notify(phase: string, taskId: string) {
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [repos, setRepos] = useState<RepoInfo[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  // Selection lives in the URL so a task is linkable and survives a reload.
+  const [selected, setSelected] = useState<string | null>(
+    () => new URLSearchParams(location.search).get("task"),
+  );
   const [newOpen, setNewOpen] = useState(false);
   const [reposOpen, setReposOpen] = useState(false);
   const [health, setHealth] = useState<{ claude_available: boolean; max_parallel: number } | null>(null);
@@ -38,6 +41,19 @@ export default function App() {
   }, []);
 
   useEffect(() => { void refresh(); void api.health().then(setHealth).catch(() => {}); }, [refresh]);
+
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (selected) url.searchParams.set("task", selected);
+    else url.searchParams.delete("task");
+    history.replaceState(null, "", url);
+  }, [selected]);
+
+  useEffect(() => {
+    const onPop = () => setSelected(new URLSearchParams(location.search).get("task"));
+    addEventListener("popstate", onPop);
+    return () => removeEventListener("popstate", onPop);
+  }, []);
   // One global stream keeps the list live without polling, and raises a desktop
   // notification when a task finishes or gets stuck.
   useEffect(() => subscribe((e) => {
@@ -88,7 +104,7 @@ export default function App() {
           {tasks.map((t) => (
             <div key={t.id} className={`task-row ${t.id === selected ? "active" : ""}`}
               onClick={() => setSelected(t.id)}>
-              <div className="row">
+              <div className="row head" title={t.title}>
                 <Dot task={t} />
                 <span className="title">{t.title}</span>
               </div>
