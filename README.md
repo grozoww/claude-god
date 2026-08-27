@@ -56,16 +56,44 @@ same JSON shape a critic emits. One loop, one format, no special path.
 Needs `claude` (logged in), `git`, `uv`, and Node for the dashboard.
 
 ```bash
-uv sync
-cd ui && npm install && npm run build && cd ..
+./install.sh
+```
+
+That installs the dependencies, builds the dashboard, and puts `ccgod` on your
+PATH. Re-run it any time to update.
+
+| | |
+|---|---|
+| `./install.sh --dev` | also install pytest and ruff |
+| `./install.sh --no-ui` | skip the dashboard build (API and CLI only) |
+| `./install.sh --no-global` | leave PATH alone; use `uv run ccgod` |
+
+It installs **editable**, so `ccgod` runs from this checkout — the agent prompts
+live in `plugin/` and are found relative to the package. Move the directory and
+re-run the script.
+
+To undo it:
+
+```bash
+./uninstall.sh
+```
+
+That removes the `ccgod` command and the build output, and leaves your data
+alone. `--purge` also deletes `~/.ccgod` (repo registry, demo repos, worktrees),
+detaching lane worktrees from your repos first so none are left with dangling
+refs. Task folders inside your own repos are never touched.
+
+<details>
+<summary><b>Doing it by hand instead</b></summary>
+
+```bash
+uv sync                                    # add --extra dev for pytest and ruff
+cd ui && npm ci && npm run build && cd ..  # dashboard into server/ccgod/static
+uv tool install --editable .               # optional: ccgod on your PATH
 uv run ccgod doctor
 ```
 
-Optionally install the CLI globally:
-
-```bash
-uv tool install --editable .
-```
+</details>
 
 ## Try it on a sandbox
 
@@ -292,6 +320,7 @@ server/ccgod/      state machine, task store, runner, gates, worktrees, API, CLI
 ui/              React dashboard → builds into server/ccgod/static
 plugin/          skills and agent definitions
 examples/toy/    sandbox repo used by `ccgod demo`
+install.sh       one-command setup; uninstall.sh undoes it
 scripts/         screenshot tooling for the README
 docs/img/        the screenshots above
 .github/         CI workflow and Dependabot config

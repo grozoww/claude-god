@@ -40,6 +40,17 @@ jobs:
         # The suite uses a fake runner, so it never calls Claude and costs nothing.
         run: uv run pytest server/tests -q
 
+  scripts:
+    name: shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck
+        # install.sh / uninstall.sh run before anything else is set up, so a
+        # typo in them is the worst possible first impression.
+        run: shellcheck -S warning install.sh uninstall.sh
+
   ui:
     name: ui
     runs-on: ubuntu-latest
