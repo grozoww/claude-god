@@ -170,6 +170,8 @@ class TaskState(BaseModel):
     budget_usd: float | None = None
 
     auto_approve_spec: bool = False
+    #: Hidden from the default list, but still on disk. Retention still applies.
+    archived: bool = False
     error: str | None = None
     parked_until: datetime | None = None
 

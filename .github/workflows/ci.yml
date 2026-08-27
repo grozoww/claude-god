@@ -31,7 +31,7 @@ jobs:
           enable-cache: true
 
       - name: Install
-        run: uv sync --frozen --extra dev --python ${{ matrix.python }}
+        run: uv sync --frozen --python ${{ matrix.python }}
 
       - name: Lint
         run: uv run ruff check server scripts

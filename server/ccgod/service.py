@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
+from . import retention
 from .bus import BUS, EventBus
 from .config import ServerConfig, load_project_config
 from .models import (
@@ -58,11 +60,19 @@ class Service:
                 return st
         raise TaskNotFound(task_id)
 
-    def list_tasks(self, repo: str | Path | None = None) -> list[TaskState]:
+    def list_tasks(
+        self,
+        repo: str | Path | None = None,
+        *,
+        archived: bool | None = False,
+    ) -> list[TaskState]:
+        """`archived=False` hides archived tasks, `True` shows only those,
+        `None` shows everything."""
         repos = [Path(repo).expanduser().resolve()] if repo else self.repo_paths()
         out: list[TaskState] = []
         for r in repos:
-            out.extend(iter_tasks(r))
+            out.extend(t for t in iter_tasks(r)
+                       if archived is None or t.archived == archived)
         out.sort(key=lambda t: t.created_at, reverse=True)
         for t in out:
             if self.pipeline.is_running(t.id) and t.status is not Status.RUNNING:
@@ -214,6 +224,120 @@ class Service:
             raise RuntimeError(res.error or "onboarding failed")
         self._ensure_gitignore(repo_path)
         return res.text
+
+    # ---- removal -----------------------------------------------------
+    async def delete_task(self, task_id: str, *, branch: bool = False) -> dict:
+        """Delete a task folder. Its git branch is kept unless asked otherwise."""
+        import shutil
+
+        store = self.store(task_id)
+        state = store.load()
+        if self.pipeline.is_running(task_id):
+            await self.pipeline.cancel(store)
+        await self.pipeline.cleanup_worktrees(store)
+
+        removed_branch = None
+        if branch and state.branch:
+            from . import worktree as wt
+
+            for name in [state.branch, *[ln.branch for ln in state.lanes.values() if ln.branch]]:
+                try:
+                    await wt.git("branch", "-D", name, cwd=store.repo)
+                    removed_branch = state.branch
+                except wt.GitError:
+                    pass  # already gone, or checked out somewhere
+
+        shutil.rmtree(store.dir, ignore_errors=True)
+        self.bus.publish(Event(
+            task_id=task_id, kind="state", message="task deleted", level="warn",
+            data={"deleted": True},
+        ))
+        return {"id": task_id, "deleted": True, "branch_deleted": removed_branch}
+
+    def set_archived(self, task_id: str, archived: bool = True) -> TaskState:
+        """Hide a task from the default list without deleting it."""
+        store = self.store(task_id)
+        state = store.load()
+        state.archived = archived
+        store.save(state)
+        self.pipeline.emit(
+            store, "state", "archived" if archived else "unarchived", archived=archived
+        )
+        return state
+
+    def prune_plan(self, *, include_unfinished: bool = False) -> list[retention.Pruned]:
+        out: list[retention.Pruned] = []
+        for repo in self.repo_paths():
+            out.extend(retention.plan(
+                repo, self.cfg.retention,
+                is_running=self.pipeline.is_running,
+                include_unfinished=include_unfinished,
+            ))
+        return out
+
+    async def prune(self, *, include_unfinished: bool = False) -> list[retention.Pruned]:
+        """Apply the retention policy across every registered repo."""
+        out: list[retention.Pruned] = []
+        for repo in self.repo_paths():
+            out.extend(await retention.apply(
+                repo, self.cfg.retention,
+                is_running=self.pipeline.is_running,
+                include_unfinished=include_unfinished,
+                remove_worktrees=self.pipeline.cleanup_worktrees,
+            ))
+        if out:
+            self.bus.publish(Event(
+                task_id="maintenance", kind="log",
+                message=f"pruned {len(out)} task(s)",
+                data={"pruned": [p.__dict__ for p in out]},
+            ))
+        return out
+
+    # ---- clone -------------------------------------------------------
+    async def clone(self, url: str, into: str | Path | None = None,
+                    name: str | None = None) -> dict:
+        """git clone a repo, then register it. Does not run onboarding."""
+        from . import worktree as wt
+
+        url = url.strip()
+        if not url or url.startswith("-"):
+            raise ValueError("a git URL is required")
+
+        derived = re.sub(r"[/:]+$", "", url).rsplit("/", 1)[-1].removesuffix(".git")
+        if not derived:
+            raise ValueError(f"could not work out a directory name from {url!r}")
+
+        if into:
+            target = Path(into).expanduser().resolve()
+            # An existing directory means "clone into here", a new one is the repo.
+            if target.is_dir():
+                target = target / derived
+        else:
+            target = Path(self.cfg.clone_root).expanduser().resolve() / derived
+
+        if target.exists():
+            raise FileExistsError(f"{target} already exists")
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        self.bus.publish(Event(task_id="clone", kind="phase_start",
+                               message=f"cloning {url} -> {target}"))
+        try:
+            await wt.git("clone", "--", url, str(target), cwd=target.parent)
+        except wt.GitError as exc:
+            self.bus.publish(Event(task_id="clone", kind="error", level="error",
+                                   message=str(exc)[-500:]))
+            raise
+
+        self.add_repo(target, name)
+        onboarded = (target / ".agents" / "project.md").exists()
+        self.bus.publish(Event(task_id="clone", kind="phase_end",
+                               message=f"cloned into {target}"))
+        return {
+            "path": str(target),
+            "name": name or target.name,
+            "onboarded": onboarded,
+            "next": None if onboarded else f"ccgod init {target}",
+        }
 
     # ---- rollups -----------------------------------------------------
     def usage_summary(self) -> dict:

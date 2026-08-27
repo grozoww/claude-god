@@ -71,9 +71,9 @@ fi
 # ---- python side -----------------------------------------------------
 step "Installing Python dependencies"
 if [ "$WITH_DEV" -eq 1 ]; then
-  uv sync --extra dev
+  uv sync                 # the dev group is included by default
 else
-  uv sync
+  uv sync --no-dev
 fi
 
 # ---- dashboard -------------------------------------------------------

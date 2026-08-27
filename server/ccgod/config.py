@@ -82,6 +82,20 @@ def save_project_config(repo: str | Path, cfg: ProjectConfig) -> Path:
     return path
 
 
+class Retention(BaseModel):
+    """How long finished tasks stick around.
+
+    Both rules apply; whichever bites first wins. A task that is currently
+    running is never pruned, however old it is.
+    """
+
+    enabled: bool = True
+    #: Newest N tasks kept per repo. 0 disables the count rule.
+    max_tasks: int = 50
+    #: Tasks older than this are dropped even if the repo is under max_tasks.
+    max_age_days: int = 30
+
+
 class Repo(BaseModel):
     name: str
     path: str
@@ -97,6 +111,9 @@ class ServerConfig(BaseModel):
     phase_timeout_s: int = 3600
     host: str = "127.0.0.1"
     port: int = 8787
+    retention: Retention = Field(default_factory=Retention)
+    #: Where `ccgod clone` puts repos when no target is given.
+    clone_root: str = "~/.ccgod/repos"
     #: Shell command run when a task finishes or needs you. Gets CCGOD_TASK_ID,
     #: CCGOD_TASK_TITLE, CCGOD_PHASE, CCGOD_REPO in its environment. Example on macOS:
     #: "osascript -e 'display notification \"$CCGOD_TASK_TITLE\" with title \"$CCGOD_PHASE\"'"

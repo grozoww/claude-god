@@ -87,7 +87,7 @@ refs. Task folders inside your own repos are never touched.
 <summary><b>Doing it by hand instead</b></summary>
 
 ```bash
-uv sync                                    # add --extra dev for pytest and ruff
+uv sync                                    # --no-dev to skip pytest and ruff
 cd ui && npm ci && npm run build && cd ..  # dashboard into server/ccgod/static
 uv tool install --editable .               # optional: ccgod on your PATH
 uv run ccgod doctor
@@ -130,6 +130,12 @@ uv run ccgod new "add order refunds" -r repo
 uv run ccgod serve                  # dashboard on http://127.0.0.1:8787
 ```
 
+Not on disk yet? `ccgod clone <url>` clones it and registers it in one step,
+using your existing git credentials. The dashboard has a folder browser for
+picking paths — a web page cannot read a real filesystem path, so the server
+does the walking and labels each folder as *git repo*, *registered* or
+*onboarded*.
+
 `ccgod init` runs one agent that explores the repo and drafts:
 
 | File | What it is |
@@ -166,19 +172,67 @@ other's files. Single-stack repos should use one lane named `main`.
 ```
 ccgod demo                     copy the toy repo and register it
 ccgod init <repo>              draft .agents/ for a repo
+ccgod clone <url> [--into <d>] clone a repo and register it
 ccgod new "<title>" -r <repo>  create and run a task
-ccgod list                     tasks across registered repos
+ccgod list [--all]             tasks across registered repos
 ccgod show <id> -e 40          one task, with the last 40 events
 ccgod spec <id>                print the spec
 ccgod approve <id>             approve the spec and continue
 ccgod redo <id> "<note>"       send it back with a note
 ccgod cancel <id>              stop it
 ccgod cleanup <id>             remove lane worktrees
+ccgod archive <id>             hide it from the list, keep it on disk
+ccgod rm <id> [--branch]       delete it for good
+ccgod prune [--dry-run]        apply the retention policy now
 ccgod usage                    token and cost rollup
-ccgod serve                    API + dashboard
-ccgod doctor                   check the environment
 ccgod repos add|list|rm        manage the repo registry
+ccgod doctor                   check the environment
+
+ccgod serve                    start the dashboard (detached)
+ccgod status                   is it running?
+ccgod restart                  stop and start again — picks up code changes
+ccgod stop                     stop it
 ```
+
+`serve` detaches and returns, so you get your terminal back; logs go to
+`~/.ccgod/serve.log`. Use `--foreground` to keep it attached, and `--reload`
+while working on the server (it implies `--foreground`).
+
+## Applying changes
+
+The install is editable, so most of the time there is nothing to do:
+
+| You changed | What to run |
+|---|---|
+| Python or CLI code | nothing — the next `ccgod` picks it up |
+| Server code, while it is serving | `ccgod restart` |
+| `ui/` | `cd ui && npm run build`, then reload the page |
+| Dependencies, or you pulled new commits | `./install.sh` |
+
+For UI work, `cd ui && npm run dev` gives hot reload on :5173, proxied to the
+API on :8787.
+
+## Housekeeping
+
+Finished tasks are removed automatically. Two rules, per repo, whichever bites
+first — keep the newest 50, and drop anything untouched for 30 days:
+
+```json
+// ~/.ccgod/config.json
+{ "retention": { "enabled": true, "max_tasks": 50, "max_age_days": 30 } }
+```
+
+A task that is still running is never pruned, and one that never reached a
+terminal phase is spared unless you pass `--unfinished`. Set either limit to `0`
+to switch that rule off, or `enabled: false` for neither.
+
+`ccgod prune --dry-run` shows what would go. The server also prunes at startup
+and once a day. Deleting a task removes its folder and worktrees; its git branch
+survives unless you ask for `--branch`.
+
+Archiving is the softer option: `ccgod archive <id>` hides a task from the list
+but leaves it on disk. Retention still applies to archived tasks — that is the
+difference between archiving and keeping something forever.
 
 <details>
 <summary><b>More screens</b></summary>
@@ -282,10 +336,10 @@ dashboard also raises a browser notification when its tab is open.
 ## Development
 
 ```bash
-uv run pytest server/tests -q       # 46 tests, no tokens spent
+uv run pytest server/tests -q       # 78 tests, no tokens spent
 uv run ruff check server scripts    # lint
 cd ui && npm run dev                # dashboard on :5173, proxies to :8787
-uv run ccgod serve                  # API on :8787
+ccgod serve --foreground --reload   # API on :8787, restarts on code changes
 ```
 
 CI runs the same three on every push and PR: pytest on Python 3.11 and 3.13,

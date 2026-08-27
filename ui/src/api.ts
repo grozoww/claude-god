@@ -1,4 +1,4 @@
-import type { GodEvent, RepoInfo, Task, TaskDetail } from "./types";
+import type { FsListing, GodEvent, PrunePlan, RepoInfo, Task, TaskDetail } from "./types";
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -23,7 +23,8 @@ export const api = {
   addRepo: (path: string, name?: string) => post("/api/repos", { path, name }).then(j<{ ok: true }>),
   onboard: (repo: string, hint = "") => post("/api/onboard", { repo, hint }).then(j<{ summary: string }>),
 
-  tasks: () => fetch("/api/tasks").then(j<Task[]>),
+  tasks: (archived: "false" | "true" | "all" = "false") =>
+    fetch(`/api/tasks?archived=${archived}`).then(j<Task[]>),
   task: (id: string) => fetch(`/api/tasks/${id}`).then(j<TaskDetail>),
   events: (id: string) => fetch(`/api/tasks/${id}/events?limit=500`).then(j<GodEvent[]>),
   diff: (id: string) => fetch(`/api/tasks/${id}/diff`).then(j<{ diff: string; note?: string }>),
@@ -45,6 +46,22 @@ export const api = {
     }).then(j<Task>),
 
   usage: () => fetch("/api/usage").then(j<{ tasks: number; total: Task["usage"] }>),
+
+  remove: (id: string, branch = false) =>
+    fetch(`/api/tasks/${id}?branch=${branch}`, { method: "DELETE" }).then(j<{ deleted: boolean }>),
+  archive: (id: string, archived = true) =>
+    post(`/api/tasks/${id}/archive?archived=${archived}`).then(j<Task>),
+
+  clone: (url: string, into?: string, name?: string) =>
+    post("/api/repos/clone", { url, into, name })
+      .then(j<{ path: string; name: string; onboarded: boolean; next: string | null }>),
+
+  fsRoots: () => fetch("/api/fs/roots").then(j<FsListing["entries"]>),
+  fsList: (path: string) =>
+    fetch(`/api/fs/list?path=${encodeURIComponent(path)}`).then(j<FsListing>),
+
+  prunePlan: () => fetch("/api/maintenance/prune").then(j<PrunePlan>),
+  prune: () => post("/api/maintenance/prune").then(j<{ removed: PrunePlan["would_remove"] }>),
 };
 
 /** Live event stream. Returns an unsubscribe function. */

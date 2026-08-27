@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import browse, retention
 from .bus import BUS
 from .config import ServerConfig, load_project_config, save_project_config
 from .models import Phase
@@ -50,6 +51,12 @@ class OnboardBody(BaseModel):
     hint: str = ""
 
 
+class CloneBody(BaseModel):
+    url: str
+    into: str | None = None
+    name: str | None = None
+
+
 def create_app(cfg: ServerConfig | None = None) -> FastAPI:
     service = Service(cfg)
 
@@ -61,11 +68,23 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
                     await service.resume_parked()
                 await asyncio.sleep(60)
 
-        watcher = asyncio.create_task(park_watcher())
+        async def retention_watcher():
+            # Once at startup, then daily. Cheap: it only stats task folders.
+            while True:
+                with contextlib.suppress(Exception):
+                    removed = await service.prune()
+                    if removed:
+                        print(f"retention: pruned {len(removed)} task(s)")
+                await asyncio.sleep(retention.next_run_delay())
+
+        watchers = [asyncio.create_task(park_watcher())]
+        if service.cfg.retention.enabled:
+            watchers.append(asyncio.create_task(retention_watcher()))
         try:
             yield
         finally:
-            watcher.cancel()
+            for w in watchers:
+                w.cancel()
 
     app = FastAPI(title="claude-god", version="0.1.0", lifespan=lifespan)
     app.state.service = service
@@ -131,6 +150,33 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
         save_project_config(repo, cfg)
         return cfg.model_dump()
 
+    @app.post("/api/repos/clone")
+    async def clone_repo(body: CloneBody):
+        try:
+            return await service.clone(body.url, body.into, body.name)
+        except FileExistsError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:  # git failure — hand the user git's own words
+            raise HTTPException(422, str(exc)[-1500:]) from exc
+
+    # ---- filesystem picker -------------------------------------------
+    @app.get("/api/fs/roots")
+    async def fs_roots():
+        return [e.model_dump() for e in browse.roots(service.repo_paths())]
+
+    @app.get("/api/fs/list")
+    async def fs_list(path: str = Query(...), hidden: bool = False):
+        try:
+            return browse.listdir(path, service.repo_paths(), show_hidden=hidden).model_dump()
+        except FileNotFoundError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except NotADirectoryError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from exc
+
     @app.post("/api/onboard")
     async def onboard(body: OnboardBody):
         try:
@@ -147,8 +193,10 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
             raise HTTPException(404, f"no such task: {task_id}") from exc
 
     @app.get("/api/tasks")
-    async def list_tasks(repo: str | None = None):
-        return [t.model_dump(mode="json") for t in service.list_tasks(repo)]
+    async def list_tasks(repo: str | None = None, archived: str = "false"):
+        """archived: false (default) | true | all"""
+        flag = {"false": False, "true": True, "all": None}.get(archived.lower(), False)
+        return [t.model_dump(mode="json") for t in service.list_tasks(repo, archived=flag)]
 
     @app.post("/api/tasks")
     async def create_task(body: CreateTaskBody):
@@ -244,6 +292,16 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
         _store(task_id)
         return (await service.cancel(task_id)).model_dump(mode="json")
 
+    @app.delete("/api/tasks/{task_id}")
+    async def delete_task(task_id: str, branch: bool = False):
+        _store(task_id)
+        return await service.delete_task(task_id, branch=branch)
+
+    @app.post("/api/tasks/{task_id}/archive")
+    async def archive_task(task_id: str, archived: bool = True):
+        _store(task_id)
+        return service.set_archived(task_id, archived).model_dump(mode="json")
+
     @app.post("/api/tasks/{task_id}/cleanup")
     async def cleanup_task(task_id: str):
         _store(task_id)
@@ -262,6 +320,20 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
         state.criteria = parse_criteria(body.get("text", ""))
         store.save(state)
         return state.model_dump(mode="json")
+
+    @app.get("/api/maintenance/prune")
+    async def prune_preview(unfinished: bool = False):
+        """What retention would remove right now. Deletes nothing."""
+        return {
+            "policy": service.cfg.retention.model_dump(),
+            "would_remove": [p.__dict__ for p in
+                             service.prune_plan(include_unfinished=unfinished)],
+        }
+
+    @app.post("/api/maintenance/prune")
+    async def prune_now(unfinished: bool = False):
+        return {"removed": [p.__dict__ for p in
+                            await service.prune(include_unfinished=unfinished)]}
 
     @app.get("/api/usage")
     async def usage():

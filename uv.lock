@@ -187,13 +187,15 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+sdk = [
+    { name = "claude-agent-sdk" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
-]
-sdk = [
-    { name = "claude-agent-sdk" },
 ]
 
 [package.metadata]
@@ -202,14 +204,18 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "pydantic", specifier = ">=2.9" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "rich", specifier = ">=13.9" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9" },
     { name = "typer", specifier = ">=0.15" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
-provides-extras = ["sdk", "dev"]
+provides-extras = ["sdk"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "ruff", specifier = ">=0.9" },
+]
 
 [[package]]
 name = "click"

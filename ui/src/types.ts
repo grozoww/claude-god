@@ -46,6 +46,7 @@ export interface Task {
   lanes: Record<string, LaneState>; criteria: Criterion[];
   verdict?: Verdict | null; gate_results: GateResult[];
   pending_findings: Finding[]; usage: Usage; budget_usd?: number | null;
+  archived: boolean;
   error?: string | null; parked_until?: string | null;
   created_at: string; updated_at: string;
 }
@@ -68,4 +69,19 @@ export interface GodEvent {
 export interface RepoInfo {
   name: string; path: string; exists: boolean;
   onboarded: boolean; lanes: string[]; gates: string[];
+}
+
+export interface FsEntry {
+  name: string; path: string;
+  is_git: boolean; is_registered: boolean; is_onboarded: boolean; readable: boolean;
+}
+
+export interface FsListing {
+  path: string; parent: string | null; entries: FsEntry[];
+  is_git: boolean; is_registered: boolean; is_onboarded: boolean;
+}
+
+export interface PrunePlan {
+  policy: { enabled: boolean; max_tasks: number; max_age_days: number };
+  would_remove: { id: string; repo: string; title: string; reason: string; age_days: number }[];
 }

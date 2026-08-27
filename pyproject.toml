@@ -14,6 +14,11 @@ dependencies = [
 
 [project.optional-dependencies]
 sdk = ["claude-agent-sdk>=0.1.0"]
+
+# A dependency group, not an extra: `uv run` and `uv sync` include it by
+# default, so running anything cannot quietly uninstall pytest and ruff.
+# Users who do not want it: `uv sync --no-dev`.
+[dependency-groups]
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.9"]
 
 [project.scripts]

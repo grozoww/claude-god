@@ -6,7 +6,9 @@ import { Diff, Modal, Pill, ProblemText, cost, findingLabel, tokens } from "./bi
 const MARK: Record<CritStatus, string> = { pass: "✔", fail: "✘", unknown: "·" };
 type Tab = "overview" | "spec" | "plan" | "diff" | "log";
 
-export default function TaskDetail({ id, onChanged }: { id: string; onChanged: () => void }) {
+export default function TaskDetail({
+  id, onChanged, onGone,
+}: { id: string; onChanged: () => void; onGone: () => void }) {
   const [task, setTask] = useState<TD | null>(null);
   const [events, setEvents] = useState<GodEvent[]>([]);
   const [tab, setTab] = useState<Tab>(
@@ -15,6 +17,7 @@ export default function TaskDetail({ id, onChanged }: { id: string; onChanged: (
   const [diff, setDiff] = useState<string>("");
   const [specDraft, setSpecDraft] = useState<string>("");
   const [redoOpen, setRedoOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
@@ -115,6 +118,14 @@ export default function TaskDetail({ id, onChanged }: { id: string; onChanged: (
             Remove worktrees
           </button>
         )}
+        <span className="spacer" />
+        <button disabled={busy}
+          onClick={() => act(() => api.archive(id, !task.archived))}>
+          {task.archived ? "Unarchive" : "Archive"}
+        </button>
+        <button className="danger" disabled={busy} onClick={() => setDelOpen(true)}>
+          Delete
+        </button>
       </div>
 
       {err && <div className="err">{err}</div>}
@@ -287,6 +298,19 @@ export default function TaskDetail({ id, onChanged }: { id: string; onChanged: (
         </div>
       )}
 
+      {delOpen && (
+        <DeleteDialog
+          task={task}
+          onClose={() => setDelOpen(false)}
+          onConfirm={async (branch) => {
+            setDelOpen(false);
+            setBusy(true);
+            try { await api.remove(id, branch); onGone(); }
+            catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+          }}
+        />
+      )}
+
       {redoOpen && (
         <RedoDialog
           awaiting={awaiting}
@@ -334,6 +358,37 @@ function RedoDialog({
         <button onClick={onClose}>Cancel</button>
         <button className="primary" disabled={!note.trim()}
           onClick={() => onSubmit(note.trim(), lane || undefined)}>Send back</button>
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteDialog({
+  task, onClose, onConfirm,
+}: { task: TD; onClose: () => void; onConfirm: (branch: boolean) => void }) {
+  const [branch, setBranch] = useState(false);
+  return (
+    <Modal title="Delete this task?" onClose={onClose}>
+      <p style={{ marginTop: 0 }}>
+        <b>{task.title}</b>
+      </p>
+      <p className="small muted">
+        Removes the task folder — spec, plan, reviews, events — and its lane
+        worktrees. This cannot be undone. Archive it instead if you only want it
+        out of the list.
+      </p>
+      {task.branch && (
+        <label className="check">
+          <input type="checkbox" checked={branch} onChange={(e) => setBranch(e.target.checked)} />
+          <span>
+            Also delete the branch <code className="mono">{task.branch}</code>
+            <span className="muted"> — the code it produced goes with it</span>
+          </span>
+        </label>
+      )}
+      <div className="actions">
+        <button onClick={onClose}>Cancel</button>
+        <button className="danger" onClick={() => onConfirm(branch)}>Delete</button>
       </div>
     </Modal>
   );

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import time
 from pathlib import Path
 
 import typer
@@ -11,8 +12,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from . import daemon
 from .bus import BUS
-from .config import ServerConfig, load_project_config
+from .config import ServerConfig, ccgod_home, load_project_config
 from .models import CritStatus, Phase
 from .service import Service, TaskNotFound
 
@@ -173,10 +175,14 @@ def new(
 
 
 @app.command("list")
-def list_tasks(repo: str = typer.Option(None, "--repo", "-r")):
+def list_tasks(
+    repo: str = typer.Option(None, "--repo", "-r"),
+    archived: bool = typer.Option(False, "--archived", help="Only archived tasks"),
+    all_: bool = typer.Option(False, "--all", "-a", help="Archived ones too"),
+):
     """List tasks across registered repos."""
     svc = _svc()
-    tasks = svc.list_tasks(repo)
+    tasks = svc.list_tasks(repo, archived=None if all_ else archived)
     if not tasks:
         console.print("[dim]no tasks[/]")
         return
@@ -257,6 +263,102 @@ def cleanup(task_id: str):
     """Remove the lane worktrees for a task."""
     asyncio.run(_svc().cleanup(task_id))
     console.print("[green]worktrees removed[/]")
+
+
+@app.command("rm")
+def remove(
+    task_id: str,
+    branch: bool = typer.Option(False, "--branch", help="Delete its git branch too"),
+    yes: bool = typer.Option(False, "--yes", "-y"),
+):
+    """Delete a task: its folder, its worktrees, optionally its branch."""
+    svc = _svc()
+    try:
+        state = svc.store(task_id).load()
+    except TaskNotFound:
+        console.print(f"[red]no such task:[/] {task_id}")
+        raise typer.Exit(1) from None
+    if not yes:
+        console.print(f"Delete [bold]{state.title}[/] ({state.phase.value})?")
+        if branch and state.branch:
+            console.print(f"  and the branch [bold]{state.branch}[/]")
+        if not typer.confirm("Continue?"):
+            console.print("Cancelled.")
+            raise typer.Exit(0)
+    res = asyncio.run(svc.delete_task(task_id, branch=branch))
+    console.print(f"[green]deleted[/] {task_id}"
+                  + (f" and branch {res['branch_deleted']}" if res.get("branch_deleted") else ""))
+
+
+@app.command()
+def archive(task_id: str):
+    """Hide a task from the default list. It stays on disk."""
+    _svc().set_archived(task_id, True)
+    console.print(f"[green]archived[/] {task_id}  [dim]see it with `ccgod list --all`[/]")
+
+
+@app.command()
+def unarchive(task_id: str):
+    """Bring an archived task back into the list."""
+    _svc().set_archived(task_id, False)
+    console.print(f"[green]unarchived[/] {task_id}")
+
+
+@app.command()
+def prune(
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show, do not delete"),
+    unfinished: bool = typer.Option(False, "--unfinished",
+                                    help="Include tasks that never reached a terminal phase"),
+    yes: bool = typer.Option(False, "--yes", "-y"),
+):
+    """Apply the retention policy: keep the newest N, drop anything too old."""
+    svc = _svc()
+    pol = svc.cfg.retention
+    console.print(
+        f"[dim]policy:[/] keep newest {pol.max_tasks} per repo, "
+        f"drop older than {pol.max_age_days} days"
+        + ("" if pol.enabled else "  [yellow](disabled)[/]")
+    )
+    doomed = svc.prune_plan(include_unfinished=unfinished)
+    if not doomed:
+        console.print("[green]nothing to prune[/]")
+        return
+    t = Table("task", "reason", "age", "title")
+    for d in doomed:
+        t.add_row(d.id, d.reason, f"{d.age_days}d", d.title[:44])
+    console.print(t)
+    if dry_run:
+        console.print(f"[dim]{len(doomed)} would be removed — run without --dry-run[/]")
+        return
+    if not yes and not typer.confirm(f"Delete {len(doomed)} task(s)?"):
+        console.print("Cancelled.")
+        raise typer.Exit(0)
+    removed = asyncio.run(svc.prune(include_unfinished=unfinished))
+    console.print(f"[green]pruned[/] {len(removed)} task(s)")
+
+
+@app.command()
+def clone(
+    url: str,
+    into: str = typer.Option(None, "--into", "-i", help="Where to put it"),
+    name: str = typer.Option(None, "--name", "-n", help="Registry name"),
+    init_after: bool = typer.Option(False, "--init", help="Run onboarding after cloning"),
+):
+    """Clone a git repo and register it."""
+    svc = _svc()
+    console.print(f"[cyan]cloning[/] {url}")
+    try:
+        res = asyncio.run(svc.clone(url, into, name))
+    except Exception as exc:
+        console.print(f"[red]clone failed:[/] {exc}")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]cloned[/] {res['path']}  registered as [bold]{res['name']}[/]")
+    if init_after:
+        console.print("[cyan]onboarding[/] — this runs one Claude session…")
+        text = asyncio.run(svc.onboard(res["path"]))
+        console.print(Panel(text or "(no summary)", title="onboarding"))
+    elif res["next"]:
+        console.print(f"next: [bold]{res['next']}[/]")
 
 
 @app.command()
@@ -348,15 +450,78 @@ def demo(
 def serve(
     host: str = typer.Option(None, "--host"),
     port: int = typer.Option(None, "--port", "-p"),
-    reload: bool = typer.Option(False, "--reload"),
+    reload: bool = typer.Option(False, "--reload", help="Restart on code changes"),
+    foreground: bool = typer.Option(
+        False, "--foreground", "-f",
+        help="Stay attached and log to this terminal (ctrl-c stops it)",
+    ),
 ):
-    """Start the API + dashboard."""
+    """Start the API + dashboard. Detaches by default; stop it with `ccgod stop`."""
     import uvicorn
 
     cfg = ServerConfig.load()
     h, p = host or cfg.host, port or cfg.port
-    console.print(f"[green]claude-god[/] http://{h}:{p}")
-    uvicorn.run("ccgod.api:app", host=h, port=p, reload=reload, log_level="info")
+
+    running, state = daemon.status()
+    if running and state == "running":
+        console.print(f"[yellow]already serving[/] {running.url} (pid {running.pid})")
+        console.print("stop it first: [bold]ccgod stop[/]")
+        raise typer.Exit(1)
+
+    # uvicorn's reloader has to own the process, so it implies staying attached.
+    if reload and not foreground:
+        foreground = True
+        console.print("[dim]--reload implies --foreground[/]")
+
+    if not foreground:
+        srv = daemon.spawn(h, p)
+        console.print(f"[green]serving[/] {srv.url} (pid {srv.pid})")
+        console.print(f"[dim]logs: {ccgod_home() / 'serve.log'}   stop: ccgod stop[/]")
+        return
+
+    console.print(f"[green]claude-god[/] http://{h}:{p}   [dim]ctrl-c to stop[/]")
+    daemon.write(h, p)
+    try:
+        uvicorn.run("ccgod.api:app", host=h, port=p, reload=reload, log_level="info")
+    finally:
+        daemon.clear()
+
+
+@app.command()
+def stop():
+    """Stop the dashboard."""
+    ok, msg = daemon.stop()
+    console.print(f"[green]{msg}[/]" if ok else f"[yellow]{msg}[/]")
+
+
+@app.command()
+def restart(
+    host: str = typer.Option(None, "--host"),
+    port: int = typer.Option(None, "--port", "-p"),
+):
+    """Stop and start again in the background. Picks up code changes."""
+    cfg = ServerConfig.load()
+    prev, _ = daemon.status()
+    _, msg = daemon.stop()
+    console.print(f"[dim]{msg}[/]")
+    h = host or (prev.host if prev else cfg.host)
+    p = port or (prev.port if prev else cfg.port)
+    srv = daemon.spawn(h, p)
+    console.print(f"[green]serving[/] {srv.url} (pid {srv.pid})")
+
+
+@app.command()
+def status():
+    """Is the dashboard running?"""
+    srv, state = daemon.status()
+    if state == "running" and srv:
+        up = int(time.time() - srv.started_at)
+        console.print(f"[green]running[/] {srv.url}  pid {srv.pid}  up {up // 60}m {up % 60}s")
+    elif state == "stale" and srv:
+        console.print(f"[yellow]not responding[/] — pidfile says {srv.url} (pid {srv.pid})")
+        console.print("clear it with: [bold]ccgod stop[/]")
+    else:
+        console.print("[dim]not running[/]  start with: [bold]ccgod serve[/]")
 
 
 if __name__ == "__main__":
