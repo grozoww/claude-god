@@ -7,7 +7,7 @@ headless Claude agents: spec → plan → implement (in parallel lanes) → inte
 gates → critic review → done, with a bounded revise loop in between. It drives
 everything through the `claude` CLI (`claude -p`, subscription auth, no API key),
 one subprocess per phase, so orchestration itself is plain Python and costs zero
-tokens. A React dashboard (built into `server/god/static/`) and a `god` CLI both
+tokens. A React dashboard (built into `server/ccgod/static/`) and a `ccgod` CLI both
 sit on top of the same `Service`/`Pipeline`, so a task can be run headless from a
 terminal or watched live in a browser.
 
@@ -17,7 +17,7 @@ terminal or watched live in a browser.
   and is driven through `Phase` states by the `Pipeline`.
 - **Phase** — where a task is in the pipeline: `new → spec → awaiting_spec_approval
   → plan → implement → integrate → gates → review → (done | revise → implement …)
-  → escalated | failed | cancelled`. See `server/god/state_machine.py`.
+  → escalated | failed | cancelled`. See `server/ccgod/state_machine.py`.
 - **Lane** — a slice of the target repo (a set of path globs) owned by one
   implementing agent. Lanes run concurrently, each in its own `git worktree`, so
   two agents never edit the same files at once.
@@ -44,7 +44,7 @@ terminal or watched live in a browser.
   told by the plan/spec/review phase to stop. Waits for a human (`redo`/`approve`).
 - **`.agents/`** — the per-project agent-context directory this onboarding writes:
   `project.md`, `lanes/*.md`, `config.json`, plus the generated `tasks/` folders.
-- **`god`** — the CLI binary (`server/god/cli.py`, a Typer app): `init`, `new`,
+- **`ccgod`** — the CLI binary (`server/ccgod/cli.py`, a Typer app): `init`, `new`,
   `list`, `show`, `run`, `approve`, `redo`, `cancel`, `usage`, `demo`, `serve`.
 
 ## Architecture map
@@ -56,52 +56,52 @@ an asyncio task → `Pipeline.run()` calls one `phase_*` method per step. Each
 which runs one `claude -p` subprocess via a `Runner`, accounts usage, and emits
 `Event`s onto the `EventBus`, which the dashboard reads over SSE.
 
-- `server/god/models.py` — the schema: `Phase`, `Status`, `Criterion`, `Finding`,
+- `server/ccgod/models.py` — the schema: `Phase`, `Status`, `Criterion`, `Finding`,
   `Verdict`, `TaskState`, `Event`. This is what `state.json` and
   `reviews/round-N.json` serialize to/from.
-- `server/god/state_machine.py` — `TRANSITIONS`: legal phase moves as a plain
+- `server/ccgod/state_machine.py` — `TRANSITIONS`: legal phase moves as a plain
   dict, checked in code (`state_machine.check`), not left to model judgment.
-- `server/god/config.py` — `ServerConfig` (`~/.god/config.json`, the repo
+- `server/ccgod/config.py` — `ServerConfig` (`~/.ccgod/config.json`, the repo
   registry, `max_parallel`, which `Runner` to use) and `ProjectConfig`
   (`<repo>/.agents/config.json`: lanes, gates, `base_branch`, `max_rounds`).
-- `server/god/store.py` — `TaskStore`: every read/write of one task folder
+- `server/ccgod/store.py` — `TaskStore`: every read/write of one task folder
   (`state.json`, `spec.md`, `plan.md`, `events.jsonl`, `reviews/`, `feedback/`,
   `artifacts/`, `contract/`, `lanes/*.md`). The only persistence layer — no DB.
-- `server/god/pipeline.py` — `Pipeline`: one async method per phase
+- `server/ccgod/pipeline.py` — `Pipeline`: one async method per phase
   (`phase_spec`, `phase_plan`, `phase_implement`, `phase_integrate`,
   `phase_gates`, `phase_review`, `phase_revise`), plus the `step()`/`run()`
   drivers that advance a task until it finishes or blocks on a human.
-- `server/god/runner.py` — `PhaseRequest`/`PhaseResult`, and two backends behind
+- `server/ccgod/runner.py` — `PhaseRequest`/`PhaseResult`, and two backends behind
   one `Runner` protocol: `CliRunner` (subprocess `claude -p --output-format
   json`, default) and `SdkRunner` (`claude-agent-sdk`, optional).
-- `server/god/gates.py` — `run_gates`: runs shell commands in order, stops at
+- `server/ccgod/gates.py` — `run_gates`: runs shell commands in order, stops at
   the first failure, turns failures into `Finding`s via `findings_from_gates`.
-- `server/god/worktree.py` — git plumbing: branch/worktree create+remove, merge,
+- `server/ccgod/worktree.py` — git plumbing: branch/worktree create+remove, merge,
   diff. Every lane implements inside its own worktree.
-- `server/god/prompts.py` — assembles each phase's prompt and does context
+- `server/ccgod/prompts.py` — assembles each phase's prompt and does context
   routing: spec/plan get `project.md`; a lane dev gets its `CLAUDE.md` (auto,
   via `--add-dir`) + its lane doc + only its own criteria/findings; the critic
   gets the spec, the diff, and the invariants — never the implementer's context.
   It also loads `plugin/skills/<name>/SKILL.md` as the rules for each role.
-- `server/god/specparse.py` — parses `- [ ] AC-n: ...` items out of `spec.md`
+- `server/ccgod/specparse.py` — parses `- [ ] AC-n: ...` items out of `spec.md`
   into `Criterion` objects (with `check:`/`lane:`/`note:` sub-attributes).
-- `server/god/bus.py` — `EventBus`: in-memory pub/sub with replay, feeds
+- `server/ccgod/bus.py` — `EventBus`: in-memory pub/sub with replay, feeds
   `GET /api/stream` (SSE).
-- `server/god/api.py` — the FastAPI app: `/api/tasks`, `/api/repos`,
+- `server/ccgod/api.py` — the FastAPI app: `/api/tasks`, `/api/repos`,
   `/api/onboard`, `/api/stream`, and serving the built dashboard from
-  `server/god/static/`.
-- `server/god/service.py` — `Service`: the operations shared by the CLI and the
+  `server/ccgod/static/`.
+- `server/ccgod/service.py` — `Service`: the operations shared by the CLI and the
   HTTP API (`create`, `start`, `approve_spec`, `redo`, `cancel`, `onboard`,
   `usage_summary`, `resume_parked`).
-- `server/god/cli.py` — the `god` Typer CLI.
+- `server/ccgod/cli.py` — the `ccgod` Typer CLI.
 - `server/tests/` — pytest suite: `test_state.py` (transitions), `test_lanes.py`,
   `test_pipeline.py` (drives `Pipeline` against synthetic tmp repos),
   `test_api.py` (FastAPI `TestClient`).
 - `ui/src/` — the React + TypeScript dashboard: `App.tsx` (task list, repo
   picker), `components/NewTask.tsx`, `components/TaskDetail.tsx` (criteria,
   verdict, diff, live event log), `api.ts` (fetch wrapper + SSE `subscribe()`),
-  `types.ts` (hand-mirrors `server/god/models.py`). Vite builds this straight
-  into `server/god/static/` (`ui/vite.config.ts`), so in real use it's one process.
+  `types.ts` (hand-mirrors `server/ccgod/models.py`). Vite builds this straight
+  into `server/ccgod/static/` (`ui/vite.config.ts`), so in real use it's one process.
 - `plugin/` — the Claude Code plugin: `skills/{task-spec,task-plan,task-lane,
   task-review,project-onboard}/SKILL.md` are the actual rules each phase's agent
   follows (loaded at runtime by `prompts.py`); `agents/{planner,lane-dev,critic,

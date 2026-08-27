@@ -14,17 +14,17 @@ dependencies = [
 
 [project.optional-dependencies]
 sdk = ["claude-agent-sdk>=0.1.0"]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.9"]
 
 [project.scripts]
-ccgod = "god.cli:app"
+ccgod = "ccgod.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["server/god"]
+packages = ["server/ccgod"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -32,3 +32,31 @@ testpaths = ["server/tests"]
 
 [tool.uv]
 package = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["server/ccgod/static"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # import sorting
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "SIM",      # simplify
+    "RUF",      # ruff's own
+]
+ignore = [
+    "E501",     # line length is handled by the formatter
+    "B008",     # FastAPI depends on calls in argument defaults
+    "UP042",    # StrEnum would change what f"{phase}" renders; not worth the risk
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These extend sys.path before importing the package, so imports cannot be at top.
+"scripts/*" = ["E402"]
+# Tests reach into private helpers on purpose, and re-import inside functions
+# to keep each test readable on its own.
+"server/tests/*" = ["SLF001", "PLC0415"]

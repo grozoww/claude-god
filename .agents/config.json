@@ -12,7 +12,7 @@
     "ui": {
       "paths": ["ui/**"],
       "gates": ["cd ui && npm run typecheck"],
-      "description": "React + TypeScript dashboard (Vite), built into server/god/static/."
+      "description": "React + TypeScript dashboard (Vite), built into server/ccgod/static/."
     }
   },
   "max_rounds": 3

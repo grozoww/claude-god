@@ -17,7 +17,7 @@ and `uv.lock` that define its dependencies and test config.
 
 ## Patterns
 
-- **All task-folder I/O goes through `TaskStore`** (`server/god/store.py`). Don't
+- **All task-folder I/O goes through `TaskStore`** (`server/ccgod/store.py`). Don't
   read/write `state.json` or `spec.md` etc. directly elsewhere — add a method to
   `TaskStore` instead.
 - **Every phase transition goes through `state_machine.check()`** before
@@ -37,29 +37,29 @@ and `uv.lock` that define its dependencies and test config.
 
 ## Where things live
 
-- Schema: `server/god/models.py`
-- Legal phase transitions: `server/god/state_machine.py`
-- Config (server-wide + per-project): `server/god/config.py`
-- Task-folder persistence: `server/god/store.py`
-- The pipeline itself: `server/god/pipeline.py`
-- Claude subprocess/SDK backends: `server/god/runner.py`
-- Shell-command gates: `server/god/gates.py`
-- Git/worktree plumbing: `server/god/worktree.py`
-- Prompt assembly + context routing: `server/god/prompts.py`
-- Spec → criteria parsing: `server/god/specparse.py`
-- SSE pub/sub: `server/god/bus.py`
-- HTTP API: `server/god/api.py`
-- CLI ↔ API shared operations: `server/god/service.py`
-- CLI entry point: `server/god/cli.py`
+- Schema: `server/ccgod/models.py`
+- Legal phase transitions: `server/ccgod/state_machine.py`
+- Config (server-wide + per-project): `server/ccgod/config.py`
+- Task-folder persistence: `server/ccgod/store.py`
+- The pipeline itself: `server/ccgod/pipeline.py`
+- Claude subprocess/SDK backends: `server/ccgod/runner.py`
+- Shell-command gates: `server/ccgod/gates.py`
+- Git/worktree plumbing: `server/ccgod/worktree.py`
+- Prompt assembly + context routing: `server/ccgod/prompts.py`
+- Spec → criteria parsing: `server/ccgod/specparse.py`
+- SSE pub/sub: `server/ccgod/bus.py`
+- HTTP API: `server/ccgod/api.py`
+- CLI ↔ API shared operations: `server/ccgod/service.py`
+- CLI entry point: `server/ccgod/cli.py`
 - Tests: `server/tests/`
 
 ## Exemplar files
 
-- `server/god/pipeline.py` — the canonical shape for a phase: prompt → `_call`
+- `server/ccgod/pipeline.py` — the canonical shape for a phase: prompt → `_call`
   → validate output → mutate `state` → `_set_phase`. Read `phase_gates` and
   `phase_review` for how gate failures and critic verdicts both turn into the
   same `Finding` list feeding `revise`.
-- `server/god/models.py` — how a new field or enum should look: plain
+- `server/ccgod/models.py` — how a new field or enum should look: plain
   `pydantic.BaseModel`, `Field(default_factory=...)` for anything mutable,
   short docstring only when the "why" isn't obvious from the name.
 - `server/tests/test_pipeline.py` — how to test a phase: build a synthetic tmp

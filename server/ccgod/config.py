@@ -1,4 +1,4 @@
-"""Global config (~/.god) and per-project config (<repo>/.agents/config.json)."""
+"""Global config (~/.ccgod) and per-project config (<repo>/.agents/config.json)."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ AGENTS_DIR = ".agents"
 TASKS_DIR = "tasks"
 
 
-def god_home() -> Path:
+def ccgod_home() -> Path:
     """Where the repo registry and server-wide settings live."""
-    return Path(os.environ.get("GOD_HOME", Path.home() / ".god"))
+    return Path(os.environ.get("CCGOD_HOME", Path.home() / ".ccgod"))
 
 
 class LaneConfig(BaseModel):
@@ -39,7 +39,7 @@ class ProjectConfig(BaseModel):
     contract_dir: str | None = None
     max_rounds: int = 3
     base_branch: str = "main"
-    branch_prefix: str = "god/"
+    branch_prefix: str = "ccgod/"
     auto_approve_spec: bool = False
     budget_usd: float | None = None
     models: dict[str, str] = Field(
@@ -88,7 +88,7 @@ class Repo(BaseModel):
 
 
 class ServerConfig(BaseModel):
-    """`~/.god/config.json` — the explicit repo registry plus runtime limits."""
+    """`~/.ccgod/config.json` — the explicit repo registry plus runtime limits."""
 
     repos: list[Repo] = Field(default_factory=list)
     max_parallel: int = 2
@@ -97,20 +97,20 @@ class ServerConfig(BaseModel):
     phase_timeout_s: int = 3600
     host: str = "127.0.0.1"
     port: int = 8787
-    #: Shell command run when a task finishes or needs you. Gets GOD_TASK_ID,
-    #: GOD_TASK_TITLE, GOD_PHASE, GOD_REPO in its environment. Example on macOS:
-    #: "osascript -e 'display notification \"$GOD_TASK_TITLE\" with title \"$GOD_PHASE\"'"
+    #: Shell command run when a task finishes or needs you. Gets CCGOD_TASK_ID,
+    #: CCGOD_TASK_TITLE, CCGOD_PHASE, CCGOD_REPO in its environment. Example on macOS:
+    #: "osascript -e 'display notification \"$CCGOD_TASK_TITLE\" with title \"$CCGOD_PHASE\"'"
     notify_cmd: str | None = None
 
     @classmethod
-    def load(cls) -> "ServerConfig":
-        path = god_home() / "config.json"
+    def load(cls) -> ServerConfig:
+        path = ccgod_home() / "config.json"
         if not path.exists():
             return cls()
         return cls.model_validate(json.loads(path.read_text()))
 
     def save(self) -> Path:
-        path = god_home() / "config.json"
+        path = ccgod_home() / "config.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.model_dump(), indent=2) + "\n")
         return path

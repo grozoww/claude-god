@@ -1,11 +1,10 @@
 """M1 acceptance: task folders, transitions, event log, spec parsing."""
 
 import pytest
-
-from god import state_machine as sm
-from god.models import Criterion, Finding, Phase, Status, TaskState, Usage, Verdict
-from god.specparse import parse_criteria, unverifiable
-from god.store import TaskStore, iter_tasks
+from ccgod import state_machine as sm
+from ccgod.models import Criterion, Finding, Phase, TaskState, Usage, Verdict
+from ccgod.specparse import parse_criteria, unverifiable
+from ccgod.store import TaskStore, iter_tasks
 
 
 def make_store(tmp_path, **kw) -> TaskStore:
@@ -44,7 +43,7 @@ def test_illegal_transition_is_explicit():
 
 
 def test_events_append_and_tail(tmp_path):
-    from god.models import Event
+    from ccgod.models import Event
 
     store = make_store(tmp_path)
     for i in range(5):
@@ -54,7 +53,7 @@ def test_events_append_and_tail(tmp_path):
 
 
 def test_bad_event_line_does_not_break_the_log(tmp_path):
-    from god.models import Event
+    from ccgod.models import Event
 
     store = make_store(tmp_path)
     store.append_event(Event(task_id=store.task_id, kind="log", message="good"))

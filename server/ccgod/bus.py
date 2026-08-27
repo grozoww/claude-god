@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 
 from .models import Event
@@ -19,10 +20,9 @@ class EventBus:
         if len(self._recent) > self._replay:
             self._recent = self._recent[-self._replay :]
         for q in list(self._subs):
-            try:
+            # A slow client drops events rather than stalling the run.
+            with contextlib.suppress(asyncio.QueueFull):
                 q.put_nowait(event)
-            except asyncio.QueueFull:
-                pass  # a slow client drops events rather than stalling the run
 
     async def subscribe(
         self, task_id: str | None = None, replay: bool = True

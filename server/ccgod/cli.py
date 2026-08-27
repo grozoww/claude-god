@@ -1,4 +1,4 @@
-"""`god` — command line for the orchestrator."""
+"""`ccgod` — command line for the orchestrator."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from rich.table import Table
 
 from .bus import BUS
 from .config import ServerConfig, load_project_config
-from .models import CritStatus, Phase, Status
+from .models import CritStatus, Phase
 from .service import Service, TaskNotFound
 
 console = Console()
@@ -137,7 +137,7 @@ def init(
         path = _resolve_repo_arg(svc, repo)
     except FileNotFoundError as exc:
         console.print(f"[red]{exc}[/] — try `ccgod repos list`")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
     console.print(f"[cyan]onboarding[/] {path} — this runs one Claude session…")
     text = asyncio.run(svc.onboard(str(path), hint))
     console.print(Panel(text or "(no summary)", title="onboarding"))
@@ -160,7 +160,7 @@ def new(
         repo_path = _resolve_repo_arg(svc, repo)
     except FileNotFoundError as exc:
         console.print(f"[red]{exc}[/] — try `ccgod repos list`")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
     store = svc.create(
         str(repo_path), title, desc,
         auto_approve_spec=yes, max_rounds=rounds, budget_usd=budget,
@@ -197,7 +197,7 @@ def show(task_id: str, events: int = typer.Option(0, "--events", "-e", help="Tai
         store = svc.store(task_id)
     except TaskNotFound:
         console.print(f"[red]no such task:[/] {task_id}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     state = store.load()
     console.print(Panel(_summary(state), title=f"{state.id} — {state.title}"))
     if state.verdict:
@@ -227,7 +227,7 @@ def approve(task_id: str):
         svc.approve_spec(task_id, start=False)
     except ValueError as exc:
         console.print(f"[red]{exc}[/]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
     console.print("[green]approved[/] — continuing")
     asyncio.run(_watch(task_id, svc))
 
@@ -312,7 +312,7 @@ def doctor():
 
 @app.command()
 def demo(
-    path: str = typer.Option("~/.god/demo/toy-store", "--path", help="Where to put it"),
+    path: str = typer.Option("~/.ccgod/demo/toy-store", "--path", help="Where to put it"),
 ):
     """Copy the bundled toy repo somewhere, git-init it, and register it.
 
@@ -356,7 +356,7 @@ def serve(
     cfg = ServerConfig.load()
     h, p = host or cfg.host, port or cfg.port
     console.print(f"[green]claude-god[/] http://{h}:{p}")
-    uvicorn.run("god.api:app", host=h, port=p, reload=reload, log_level="info")
+    uvicorn.run("ccgod.api:app", host=h, port=p, reload=reload, log_level="info")
 
 
 if __name__ == "__main__":

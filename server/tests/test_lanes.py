@@ -7,13 +7,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from god.bus import EventBus
-from god.config import LaneConfig, ProjectConfig, ServerConfig, save_project_config, god_home
-from god.models import Phase, TaskState
-from god.pipeline import Pipeline, worktrees_root
-from god.runner import PhaseRequest, PhaseResult
-from god.store import TaskStore
+from ccgod.bus import EventBus
+from ccgod.config import LaneConfig, ProjectConfig, ServerConfig, save_project_config
+from ccgod.models import Phase, TaskState
+from ccgod.pipeline import Pipeline, worktrees_root
+from ccgod.runner import PhaseRequest, PhaseResult
+from ccgod.store import TaskStore
 
 SPEC = """# Spec: two lanes
 
@@ -34,7 +33,7 @@ def git(*args, cwd):
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch) -> Path:
-    monkeypatch.setenv("GOD_HOME", str(tmp_path / "godhome"))
+    monkeypatch.setenv("CCGOD_HOME", str(tmp_path / "ccgodhome"))
     r = tmp_path / "mono"
     (r / "api").mkdir(parents=True)
     (r / "web").mkdir(parents=True)
@@ -65,7 +64,7 @@ class TwoLaneRunner:
         self.calls: list[tuple[str, str | None]] = []
 
     async def run(self, req: PhaseRequest) -> PhaseResult:
-        from god.models import Usage
+        from ccgod.models import Usage
 
         self.calls.append((req.phase, req.lane))
         if req.phase == "spec":
@@ -139,16 +138,16 @@ async def test_lane_worktrees_are_cleaned_up(repo):
     pipe.runner = TwoLaneRunner(store.dir)
     await pipe.run(store)
 
-    paths = [Path(l.worktree) for l in store.load().lanes.values() if l.worktree]
+    paths = [Path(ln.worktree) for ln in store.load().lanes.values() if ln.worktree]
     assert paths and all(p.exists() for p in paths)
     await pipe.cleanup_worktrees(store)
     assert all(not p.exists() for p in paths)
-    assert all(l.worktree is None for l in store.load().lanes.values())
+    assert all(ln.worktree is None for ln in store.load().lanes.values())
 
 
 async def test_lane_criteria_are_routed_to_the_right_lane(repo):
-    from god.models import LaneState
-    from god.specparse import parse_criteria
+    from ccgod.models import LaneState
+    from ccgod.specparse import parse_criteria
 
     state = TaskState(title="x", repo=str(repo))
     state.criteria = parse_criteria(SPEC)
@@ -160,8 +159,8 @@ async def test_lane_criteria_are_routed_to_the_right_lane(repo):
 
 async def test_single_lane_owns_every_criterion(repo):
     """Criteria tagged with lanes that do not exist must not vanish."""
-    from god.models import LaneState
-    from god.specparse import parse_criteria
+    from ccgod.models import LaneState
+    from ccgod.specparse import parse_criteria
 
     state = TaskState(title="x", repo=str(repo))
     state.criteria = parse_criteria(SPEC)          # tagged be/fe
@@ -171,8 +170,8 @@ async def test_single_lane_owns_every_criterion(repo):
 
 
 async def test_lane_with_no_matching_criteria_gets_them_all(repo):
-    from god.models import LaneState
-    from god.specparse import parse_criteria
+    from ccgod.models import LaneState
+    from ccgod.specparse import parse_criteria
 
     state = TaskState(title="x", repo=str(repo))
     state.criteria = parse_criteria(SPEC)

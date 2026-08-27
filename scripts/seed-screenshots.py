@@ -13,13 +13,13 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
-from god.config import LaneConfig, ProjectConfig, Repo, ServerConfig, save_project_config
-from god.models import (
+from ccgod.config import LaneConfig, ProjectConfig, Repo, ServerConfig, save_project_config
+from ccgod.models import (
     Check,
     CheckKind,
     Criterion,
@@ -34,10 +34,10 @@ from god.models import (
     Usage,
     Verdict,
 )
-from god.store import TaskStore
+from ccgod.store import TaskStore
 
-DEMO = Path.home() / ".god" / "demo" / "shop"
-NOW = datetime.now(timezone.utc)
+DEMO = Path.home() / ".ccgod" / "demo" / "shop"
+NOW = datetime.now(UTC)
 
 
 def ago(**kw) -> datetime:
@@ -188,17 +188,17 @@ t2 = TaskState(
     description="",
     repo=str(DEMO),
     phase=Phase.IMPLEMENT, status=Status.RUNNING,
-    branch="god/t-20260827-0857-history", base_branch="main",
+    branch="ccgod/t-20260827-0857-history", base_branch="main",
     created_at=ago(minutes=19), updated_at=ago(seconds=25),
     usage=Usage(input_tokens=96, output_tokens=14_820, cache_read_tokens=1_902_440,
                 cost_usd=2.14, turns=41, duration_s=612),
     lanes={
         "be": LaneState(name="be", status=Status.DONE, session_id="0f2c…a11",
-                        branch="god/t-20260827-0857-history--be",
-                        worktree=str(Path.home() / ".god/worktrees/t-20260827-0857-history/be")),
+                        branch="ccgod/t-20260827-0857-history--be",
+                        worktree=str(Path.home() / ".ccgod/worktrees/t-20260827-0857-history/be")),
         "fe": LaneState(name="fe", status=Status.RUNNING, session_id="7b41…c02",
-                        branch="god/t-20260827-0857-history--fe",
-                        worktree=str(Path.home() / ".god/worktrees/t-20260827-0857-history/fe")),
+                        branch="ccgod/t-20260827-0857-history--fe",
+                        worktree=str(Path.home() / ".ccgod/worktrees/t-20260827-0857-history/fe")),
     },
     criteria=[
         crit("AC-1", "GET /orders returns the caller's orders, newest first, paginated at 20", CheckKind.CMD, "pytest api -q -k list_orders", "be", CritStatus.PASS),
@@ -248,8 +248,8 @@ in the same migration or the 500-order case falls back to a sequential scan.
     ev(t2.id, "log", "contract frozen: packages/contract/orders.ts", 12, phase=Phase.PLAN),
     ev(t2.id, "log", "lanes: be, fe", 12, phase=Phase.PLAN),
     ev(t2.id, "state", "plan -> implement", 12, phase=Phase.IMPLEMENT),
-    ev(t2.id, "log", "worktree ~/.god/worktrees/t-.../be", 12, lane="be"),
-    ev(t2.id, "log", "worktree ~/.god/worktrees/t-.../fe", 12, lane="fe"),
+    ev(t2.id, "log", "worktree ~/.ccgod/worktrees/t-.../be", 12, lane="be"),
+    ev(t2.id, "log", "worktree ~/.ccgod/worktrees/t-.../fe", 12, lane="fe"),
     ev(t2.id, "phase_start", "implement started", 12, lane="be", phase=Phase.IMPLEMENT),
     ev(t2.id, "phase_start", "implement started", 12, lane="fe", phase=Phase.IMPLEMENT),
     ev(t2.id, "phase_end", "implement finished", 4, lane="be", phase=Phase.IMPLEMENT),
@@ -279,11 +279,11 @@ t3 = TaskState(
     repo=str(DEMO),
     phase=Phase.ESCALATED, status=Status.BLOCKED,
     round=4, max_rounds=3, criteria_locked=True,
-    branch="god/t-20260827-0803-ratelimit", base_branch="main",
+    branch="ccgod/t-20260827-0803-ratelimit", base_branch="main",
     created_at=ago(minutes=73), updated_at=ago(minutes=11),
     usage=Usage(input_tokens=212, output_tokens=38_610, cache_read_tokens=6_441_002,
                 cost_usd=7.82, turns=118, duration_s=2_930),
-    lanes={"be": LaneState(name="be", status=Status.DONE, branch="god/t-20260827-0803-ratelimit--be")},
+    lanes={"be": LaneState(name="be", status=Status.DONE, branch="ccgod/t-20260827-0803-ratelimit--be")},
     criteria=[
         crit("AC-1", "An anonymous caller is limited to 60 search requests per minute", CheckKind.CMD, "pytest api -q -k anon_limit", "be", CritStatus.PASS),
         crit("AC-2", "An authenticated caller is limited per API key, not per IP", CheckKind.CMD, "pytest api -q -k key_limit", "be", CritStatus.FAIL),
@@ -324,11 +324,11 @@ t4 = TaskState(
     repo=str(DEMO),
     phase=Phase.DONE, status=Status.DONE,
     round=1, max_rounds=3, criteria_locked=True,
-    branch="god/t-20260826-1740-dupsku", base_branch="main",
+    branch="ccgod/t-20260826-1740-dupsku", base_branch="main",
     created_at=ago(hours=17), updated_at=ago(hours=16, minutes=44),
     usage=Usage(input_tokens=64, output_tokens=9_140, cache_read_tokens=1_233_907,
                 cost_usd=1.18, turns=31, duration_s=486),
-    lanes={"be": LaneState(name="be", status=Status.DONE, branch="god/t-20260826-1740-dupsku--be")},
+    lanes={"be": LaneState(name="be", status=Status.DONE, branch="ccgod/t-20260826-1740-dupsku--be")},
     criteria=[
         crit("AC-1", "Two lines with the same sku raise ValidationError naming the sku", CheckKind.CMD, "pytest api -q -k duplicate_sku", "be", CritStatus.PASS),
         crit("AC-2", "The check runs before any line is parsed", CheckKind.CMD, "pytest api -q -k duplicate_sku_first", "be", CritStatus.PASS),

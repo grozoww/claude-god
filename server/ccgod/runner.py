@@ -118,7 +118,7 @@ class CliRunner:
     async def run(self, req: PhaseRequest) -> PhaseResult:
         argv = self._argv(req)
         started = time.monotonic()
-        env = {**os.environ, "GOD_TASK_ID": req.task_id, "GOD_PHASE": req.phase}
+        env = {**os.environ, "CCGOD_TASK_ID": req.task_id, "CCGOD_PHASE": req.phase}
         proc = await asyncio.create_subprocess_exec(
             *argv,
             cwd=str(req.cwd),
@@ -131,7 +131,7 @@ class CliRunner:
             out, err = await asyncio.wait_for(
                 proc.communicate(req.prompt.encode()), timeout=req.timeout_s
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.wait()
             return PhaseResult(
@@ -183,7 +183,7 @@ class SdkRunner:
     """Same contract via claude-agent-sdk. Optional dependency."""
 
     def __init__(self) -> None:
-        from claude_agent_sdk import ClaudeAgentOptions, query  # noqa: F401
+        from claude_agent_sdk import ClaudeAgentOptions, query
 
         self._query = query
         self._options = ClaudeAgentOptions
@@ -214,7 +214,7 @@ class SdkRunner:
                         "num_turns": getattr(msg, "num_turns", 0) or 0,
                     }
                     usage = _usage_from_payload(payload, time.monotonic() - started)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if _looks_rate_limited(str(exc)):
                 raise RateLimited(str(exc)) from exc
             return PhaseResult(

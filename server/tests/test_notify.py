@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from god.bus import EventBus
-from god.config import ServerConfig
-from god.models import Phase, Status, TaskState
-from god.pipeline import NOTIFY_PHASES, Pipeline
-from god.store import TaskStore
+from ccgod.bus import EventBus
+from ccgod.config import ServerConfig
+from ccgod.models import Phase, Status, TaskState
+from ccgod.pipeline import NOTIFY_PHASES, Pipeline
+from ccgod.store import TaskStore
 
 
 def make(tmp_path: Path, **cfg_kw):
@@ -24,7 +24,7 @@ async def test_notify_runs_on_terminal_phases(tmp_path):
     marker = tmp_path / "fired.txt"
     store, pipe = make(
         tmp_path,
-        notify_cmd=f'printf "%s|%s" "$GOD_PHASE" "$GOD_TASK_TITLE" > {marker}',
+        notify_cmd=f'printf "%s|%s" "$CCGOD_PHASE" "$CCGOD_TASK_TITLE" > {marker}',
     )
     state = store.load()
     state.phase = Phase.REVIEW

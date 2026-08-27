@@ -23,10 +23,10 @@ MAX_DOC_CHARS = 12000
 
 
 def plugin_dir() -> Path:
-    env = os.environ.get("GOD_PLUGIN_DIR")
+    env = os.environ.get("CCGOD_PLUGIN_DIR")
     if env:
         return Path(env)
-    # server/god/prompts.py -> repo root -> plugin/
+    # server/ccgod/prompts.py -> repo root -> plugin/
     return Path(__file__).resolve().parents[2] / "plugin"
 
 

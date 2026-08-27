@@ -7,11 +7,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from ccgod.api import create_app
+from ccgod.config import LaneConfig, ProjectConfig, Repo, ServerConfig, save_project_config
+from ccgod.models import Phase
 from fastapi.testclient import TestClient
-
-from god.api import create_app
-from god.config import LaneConfig, ProjectConfig, ServerConfig, Repo, save_project_config
-from god.models import Phase
 
 
 def git(*args, cwd):
@@ -20,7 +19,7 @@ def git(*args, cwd):
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch) -> Path:
-    monkeypatch.setenv("GOD_HOME", str(tmp_path / "godhome"))
+    monkeypatch.setenv("CCGOD_HOME", str(tmp_path / "ccgodhome"))
     r = tmp_path / "repo"
     r.mkdir()
     (r / "README.md").write_text("x\n")
@@ -84,7 +83,7 @@ def test_spec_edit_then_approve(client, repo):
     tid = task["id"]
 
     # Simulate the spec phase having finished.
-    from god.store import TaskStore
+    from ccgod.store import TaskStore
 
     store = TaskStore(repo, tid)
     state = store.load()
@@ -109,7 +108,7 @@ def test_approve_in_wrong_phase_is_400(client, repo):
 
 
 def test_redo_records_feedback_as_a_finding(client, repo):
-    from god.store import TaskStore
+    from ccgod.store import TaskStore
 
     task = client.post("/api/tasks", json={"repo": "repo", "title": "t", "start": False}).json()
     tid = task["id"]
@@ -140,7 +139,7 @@ def test_file_endpoint_cannot_escape_the_task_folder(client, repo):
     assert client.get(f"/api/tasks/{tid}/file", params={"path": "../../../etc/passwd"}).status_code == 400
     assert client.get(f"/api/tasks/{tid}/file", params={"path": "nope.md"}).status_code == 404
 
-    from god.store import TaskStore
+    from ccgod.store import TaskStore
     TaskStore(repo, tid).write_text("plan.md", "# Plan\n")
     r = client.get(f"/api/tasks/{tid}/file", params={"path": "plan.md"})
     assert r.json()["text"] == "# Plan\n"
@@ -153,7 +152,7 @@ def test_cancel(client, repo):
 
 
 def test_usage_rollup(client, repo):
-    from god.store import TaskStore
+    from ccgod.store import TaskStore
 
     task = client.post("/api/tasks", json={"repo": "repo", "title": "t", "start": False}).json()
     store = TaskStore(repo, task["id"])

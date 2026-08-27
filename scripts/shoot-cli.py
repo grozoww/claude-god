@@ -25,11 +25,10 @@ import websockets
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "server"))
 
+from ccgod.cli import _summary
+from ccgod.service import Service
 from rich.console import Console
 from rich.panel import Panel
-
-from god.cli import _summary
-from god.service import Service
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 PORT = 9223

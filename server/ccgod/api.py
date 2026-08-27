@@ -6,6 +6,7 @@ One process: it owns the queue, spawns `claude -p`, and serves the UI.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 
 from .bus import BUS
 from .config import ServerConfig, load_project_config, save_project_config
-from .models import Phase, Status
+from .models import Phase
 from .service import Service, TaskNotFound
 from .store import TaskStore
 
@@ -56,10 +57,8 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         async def park_watcher():
             while True:
-                try:
+                with contextlib.suppress(Exception):
                     await service.resume_parked()
-                except Exception:  # noqa: BLE001
-                    pass
                 await asyncio.sleep(60)
 
         watcher = asyncio.create_task(park_watcher())
@@ -136,7 +135,7 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
     async def onboard(body: OnboardBody):
         try:
             text = await service.onboard(body.repo, body.hint)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise HTTPException(500, str(exc)) from exc
         return {"ok": True, "summary": text}
 
@@ -217,7 +216,7 @@ def create_app(cfg: ServerConfig | None = None) -> FastAPI:
                     "note": f"repo is on '{cur}', task branch is '{state.branch}'",
                 }
             return {"diff": await wt.diff_against(store.repo, state.base_branch)}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return {"diff": "", "note": str(exc)}
 
     @app.post("/api/tasks/{task_id}/start")

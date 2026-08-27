@@ -4,9 +4,9 @@ __pycache__/
 .pytest_cache/
 node_modules/
 ui/dist/
-server/god/static/*
-!server/god/static/.gitkeep
+server/ccgod/static/*
+!server/ccgod/static/.gitkeep
 .agents/tasks/
-.god/
+.ccgod/
 *.egg-info/
 .DS_Store

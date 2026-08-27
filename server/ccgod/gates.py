@@ -29,7 +29,7 @@ async def run_gate(
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         code = proc.returncode if proc.returncode is not None else 1
         text = out.decode(errors="replace")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         code, text = 124, f"gate timed out after {timeout_s}s"

@@ -13,13 +13,12 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from god.bus import EventBus
-from god.config import LaneConfig, ProjectConfig, ServerConfig, save_project_config
-from god.models import Phase, Status, TaskState
-from god.pipeline import Pipeline
-from god.runner import PhaseRequest, PhaseResult
-from god.store import TaskStore
+from ccgod.bus import EventBus
+from ccgod.config import LaneConfig, ProjectConfig, ServerConfig, save_project_config
+from ccgod.models import Phase, Status, TaskState
+from ccgod.pipeline import Pipeline
+from ccgod.runner import PhaseRequest, PhaseResult
+from ccgod.store import TaskStore
 
 SPEC = """# Spec: add marker
 
@@ -72,7 +71,7 @@ class FakeRunner:
         self.verdicts: list[str] = []    # queued critic verdicts
 
     async def run(self, req: PhaseRequest) -> PhaseResult:
-        from god.models import Usage
+        from ccgod.models import Usage
 
         self.calls.append(req.phase)
         if req.phase == "spec":
@@ -200,7 +199,7 @@ async def test_findings_reach_the_implementer(repo):
 
 async def test_resume_after_a_crash(repo):
     """State lives on disk, so a fresh Pipeline picks the task back up."""
-    store, pipe, fake = build(repo)
+    store, pipe, _ = build(repo)
     await pipe.step(store)                    # spec only
     await pipe.step(store)                    # plan only
     assert store.load().phase is Phase.IMPLEMENT
@@ -212,7 +211,7 @@ async def test_resume_after_a_crash(repo):
 
 
 async def test_human_redo_reopens_a_done_task(repo):
-    from god.service import Service
+    from ccgod.service import Service
 
     store, pipe, fake = build(repo)
     await pipe.run(store)

@@ -2,7 +2,7 @@
 
 The React dashboard: task list, repo picker, and the task detail view (spec,
 plan, criteria, verdicts, live diff, live event log). Everything under `ui/`.
-Vite builds it straight into `server/god/static/`, which `server/god/api.py`
+Vite builds it straight into `server/ccgod/static/`, which `server/ccgod/api.py`
 serves — in real use this is one process, but the lane only ever edits `ui/`.
 
 ## Stack
@@ -22,7 +22,7 @@ serves — in real use this is one process, but the lane only ever edits `ui/`.
 
 - **All server calls go through `ui/src/api.ts`**'s `api` object or its
   `subscribe()` helper — no ad hoc `fetch()` elsewhere.
-- **`ui/src/types.ts` hand-mirrors `server/god/models.py`.** If a Pydantic field
+- **`ui/src/types.ts` hand-mirrors `server/ccgod/models.py`.** If a Pydantic field
   changes shape, update `types.ts` in the same change — nothing generates it.
 - Errors from the API are surfaced as plain strings in local `err` state next to
   the action that caused them (see `Repos` in `App.tsx`, or `TaskDetail.tsx`),

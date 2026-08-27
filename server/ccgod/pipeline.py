@@ -11,6 +11,7 @@ run before any review agent so most bad rounds die cheaply.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -18,7 +19,8 @@ import subprocess
 from datetime import timedelta
 from pathlib import Path
 
-from . import state_machine, worktree as wt
+from . import state_machine
+from . import worktree as wt
 from .bus import EventBus
 from .config import ProjectConfig, ServerConfig, load_project_config
 from .gates import findings_from_gates, run_gates
@@ -31,7 +33,6 @@ from .models import (
     Phase,
     Status,
     TaskState,
-    Usage,
     Verdict,
     utcnow,
 )
@@ -53,9 +54,9 @@ NOTIFY_PHASES = {Phase.DONE, Phase.ESCALATED, Phase.FAILED, Phase.AWAITING_SPEC_
 
 
 def worktrees_root() -> Path:
-    from .config import god_home
+    from .config import ccgod_home
 
-    return god_home() / "worktrees"
+    return ccgod_home() / "worktrees"
 
 
 class PipelineError(RuntimeError):
@@ -154,19 +155,17 @@ class Pipeline:
             return
         env = {
             **os.environ,
-            "GOD_TASK_ID": state.id,
-            "GOD_TASK_TITLE": state.title,
-            "GOD_PHASE": phase.value,
-            "GOD_REPO": state.repo,
+            "CCGOD_TASK_ID": state.id,
+            "CCGOD_TASK_TITLE": state.title,
+            "CCGOD_PHASE": phase.value,
+            "CCGOD_REPO": state.repo,
         }
-        try:
+        with contextlib.suppress(Exception):
             subprocess.Popen(
                 cmd, shell=True, env=env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-        except Exception:  # noqa: BLE001
-            pass
 
     # ---- git helpers -------------------------------------------------
     async def _resolve_base(self, repo: Path, cfg: ProjectConfig) -> str:
@@ -247,7 +246,7 @@ class Pipeline:
         self.emit(store, "log", f"lanes: {', '.join(used)}", phase=Phase.PLAN)
 
         await wt.ensure_branch(repo, state.branch, base)
-        await wt.commit_all(repo, f"god({state.id}): plan and contract")
+        await wt.commit_all(repo, f"ccgod({state.id}): plan and contract")
         self._set_phase(store, state, Phase.IMPLEMENT, Status.IDLE)
 
     def _lane_criteria(self, state: TaskState, lane: str) -> list:
@@ -287,8 +286,8 @@ class Pipeline:
             if single:
                 cwds[lane] = repo  # nobody else is touching the tree
                 continue
-            # NOT "<task-branch>/<lane>": git cannot hold both refs/heads/god/x
-            # and refs/heads/god/x/be at once.
+            # NOT "<task-branch>/<lane>": git cannot hold both refs/heads/ccgod/x
+            # and refs/heads/ccgod/x/be at once.
             lane_branch = f"{state.branch}--{lane}"
             path = worktrees_root() / state.id / lane
             await wt.worktree_add(repo, path, lane_branch, state.branch)
@@ -332,7 +331,9 @@ class Pipeline:
             finally:
                 store.save(state)
 
-        results = await asyncio.gather(*(do_lane(l) for l in lanes), return_exceptions=True)
+        results = await asyncio.gather(
+            *(do_lane(name) for name in lanes), return_exceptions=True
+        )
         errs = [r for r in results if isinstance(r, BaseException)]
         if errs:
             if any(isinstance(e, (RateLimited, asyncio.CancelledError)) for e in errs):
@@ -341,7 +342,7 @@ class Pipeline:
 
         for lane in lanes:
             changed = await wt.commit_all(
-                cwds[lane], f"god({state.id}): {lane} round {state.round}"
+                cwds[lane], f"ccgod({state.id}): {lane} round {state.round}"
             )
             if not changed:
                 self.emit(store, "log", f"lane {lane} made no changes",
@@ -384,7 +385,7 @@ class Pipeline:
             ),
             "integrate",
         )
-        await wt.commit_all(repo, f"god({state.id}): integrate round {state.round}")
+        await wt.commit_all(repo, f"ccgod({state.id}): integrate round {state.round}")
         self._set_phase(store, state, Phase.GATES, Status.IDLE)
 
     def _gate_cmds(self, state: TaskState, cfg: ProjectConfig) -> list[tuple[str, str | None]]:
@@ -599,7 +600,7 @@ class Pipeline:
                 state.status = Status.IDLE
                 store.save(state)
                 raise
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 state = store.load()
                 state.error = str(exc)[-2000:]
                 state.status = Status.FAILED
@@ -624,7 +625,7 @@ class Pipeline:
             finally:
                 self._running.pop(store.task_id, None)
 
-        task = asyncio.create_task(_go(), name=f"god:{store.task_id}")
+        task = asyncio.create_task(_go(), name=f"ccgod:{store.task_id}")
         self._running[store.task_id] = task
         return task
 
@@ -637,10 +638,8 @@ class Pipeline:
         t = self._running.get(store.task_id)
         if t and not t.done():
             t.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await t
-            except (asyncio.CancelledError, Exception):
-                pass
         state = store.load()
         if state.phase not in {Phase.DONE, Phase.CANCELLED}:
             state.phase, state.status = Phase.CANCELLED, Status.IDLE

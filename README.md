@@ -1,5 +1,7 @@
 # claude-god
 
+[![CI](https://github.com/grozoww/claude-god/actions/workflows/ci.yml/badge.svg)](https://github.com/grozoww/claude-god/actions/workflows/ci.yml)
+
 Runs a dev task end to end with multiple Claude agents: **spec → plan → implement
 (parallel lanes) → gates → critic → done**, with a bounded revision loop and a
 dashboard to watch it and send work back.
@@ -72,7 +74,7 @@ uv run ccgod demo
 uv run ccgod new "reject orders with more than 50 lines" -r toy-store
 ```
 
-`ccgod demo` copies the bundled toy repo to `~/.god/demo/toy-store`, git-inits it and
+`ccgod demo` copies the bundled toy repo to `~/.ccgod/demo/toy-store`, git-inits it and
 registers it. The run stops for you to approve the spec; `--yes` skips that.
 
 <p align="center">
@@ -232,12 +234,12 @@ Edit `plugin/skills/*/SKILL.md` to change how a role behaves everywhere at once.
 ## Notifications
 
 ```json
-// ~/.god/config.json
-{ "notify_cmd": "osascript -e 'display notification \"$GOD_TASK_TITLE\" with title \"$GOD_PHASE\"'" }
+// ~/.ccgod/config.json
+{ "notify_cmd": "osascript -e 'display notification \"$CCGOD_TASK_TITLE\" with title \"$CCGOD_PHASE\"'" }
 ```
 
 Fires on `done`, `escalated`, `failed` and `awaiting_spec_approval`, with
-`GOD_TASK_ID`, `GOD_TASK_TITLE`, `GOD_PHASE`, `GOD_REPO` in the environment. The
+`CCGOD_TASK_ID`, `CCGOD_TASK_TITLE`, `CCGOD_PHASE`, `CCGOD_REPO` in the environment. The
 dashboard also raises a browser notification when its tab is open.
 
 ## Safety
@@ -246,16 +248,24 @@ dashboard also raises a browser notification when its tab is open.
   `--dangerously-skip-permissions` is never used.
 - The critic gets read-only tools. A critic that can edit what it reviews is no
   longer independent of it.
-- Work happens on a `god/<task-id>` branch, never on your base branch. Lane
-  worktrees live under `~/.god/worktrees/`.
+- Work happens on a `ccgod/<task-id>` branch, never on your base branch. Lane
+  worktrees live under `~/.ccgod/worktrees/`.
 
 ## Development
 
 ```bash
 uv run pytest server/tests -q       # 46 tests, no tokens spent
+uv run ruff check server scripts    # lint
 cd ui && npm run dev                # dashboard on :5173, proxies to :8787
-uv run ccgod serve                    # API on :8787
+uv run ccgod serve                  # API on :8787
 ```
+
+CI runs the same three on every push and PR: pytest on Python 3.11 and 3.13,
+ruff, and the UI typecheck plus build. Dependabot opens weekly grouped PRs for
+pip and npm, monthly for Actions.
+
+The formatter is configured but not enforced — `ruff format` would rewrite
+about 1200 lines across 17 files, so run it as its own commit if you want it.
 
 The pipeline tests use a fake runner that writes the same files a real agent would,
 so every transition, the gate→revise path, the criteria lock, escalation and the
@@ -277,11 +287,12 @@ numbers in that image are the ones that run actually produced.
 ## Layout
 
 ```
-server/god/      state machine, task store, runner, gates, worktrees, API, CLI
-ui/              React dashboard → builds into server/god/static
+server/ccgod/      state machine, task store, runner, gates, worktrees, API, CLI
+ui/              React dashboard → builds into server/ccgod/static
 plugin/          skills and agent definitions
 examples/toy/    sandbox repo used by `ccgod demo`
 scripts/         screenshot tooling for the README
 docs/img/        the screenshots above
+.github/         CI workflow and Dependabot config
 PLAN.md          the build plan this was written against
 ```
